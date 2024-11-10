@@ -58,7 +58,7 @@ density_lat <- nc_file_density$dim$latitude$vals
 ##################################################################################################
 
 nc_file_precip <- nc_open("Data/cru_ts4.08.1901.2023.pre.dat.nc")
-
+nc_file_temp <- nc_open("Data/cru_ts4.08.1901.2023.tmp.dat.nc")
 
 #filter data based on the year 1960
 time_data <- ncvar_get(nc_file_precip, varid="time")
@@ -67,6 +67,9 @@ total_time_points<- length(time_data)-start_index+1
 
 data_precip <- ncvar_get(nc_file_precip,
                     "pre", start = c(1, 1, start_index), count = c(-1, -1, total_time_points))
+
+data_temp <- ncvar_get(nc_file_temp,
+                       "tmp", start = c(1, 1, start_index), count = c(-1, -1, total_time_points))
 
 
 start_year <- 1960
@@ -106,7 +109,9 @@ out_df <- data.frame(
   year = yearly_rep,
   month = monthly_rep,
   country = country_rep,
-  precipitation = 0  # Placeholder for precipitation data
+  precipitation = 0, 
+  temp=0
+  
 )
 
 
@@ -142,11 +147,11 @@ for (i in 1:nrow(country_grid)) {
 valid_grid_points_all_t <- hash()
 
 
-for (t in 1:12) {
+for (t in 1:768) {
   
   # Initialize a new hashmap for the current time step
   valid_grid_points <- hash()
-  
+  cat("starting iteration:",t, "\n")
   for (lon_idx in 1:720) {
     
     valid_lat_idx <- NULL  # Initialize an empty matrix to store valid latitude indices
@@ -188,8 +193,8 @@ cat("Completed precomputing valid grid points and sorting keys for all time step
 ##################################################################################################
 
 # Register all but one core for parallel processing
-cores <- detectCores() - 1
-cl <- makeCluster(cores)
+cores <- detectCores() - 2
+cl <- makeCluster(cores, outfile="")
 registerDoParallel(cl)
 
 
@@ -197,7 +202,8 @@ registerDoParallel(cl)
 writeLines(c(""), "log.txt")
 
 
-results <- foreach(t = 1:12, .packages = c("foreach", "doParallel")) %dopar% {
+
+results <- foreach(t = 1:768, .packages = c("foreach", "doParallel")) %dopar% {
   
   unpack(year_month[t,], c("year","month"))
   
@@ -207,7 +213,7 @@ results <- foreach(t = 1:12, .packages = c("foreach", "doParallel")) %dopar% {
   
   valid_grid_points <- valid_grid_points_all_t[[as.character(t)]]
   
-  temp_out_df <- out_df
+  temp_out_df <- out_df[out_df$year == year & out_df$month == month, ]
 
   for (lon_idx in 1:720) {
     
@@ -237,6 +243,7 @@ results <- foreach(t = 1:12, .packages = c("foreach", "doParallel")) %dopar% {
       if(!is.na(country_code)){
         grid_density <- data_density[lon_idx, lat_idx_in_density]
         grid_precip <- data_precip[lon_idx, lat_idx, t]
+        grid_temp <- data_temp[lon_idx, lat_idx, t]
         
         # Debugging cat statements for grid values
         # cat("Grid density at (lon_idx =", lon_idx, ", lat_idx_in_density =", lat_idx_in_density, ") =", grid_density, "\n")
@@ -248,33 +255,74 @@ results <- foreach(t = 1:12, .packages = c("foreach", "doParallel")) %dopar% {
           temp_out_df$country == country_code
         
         temp_out_df$precipitation[country_row] <- temp_out_df$precipitation[country_row] + grid_density * grid_precip
-        
+        temp_out_df$temp[country_row] <- temp_out_df$temp[country_row] + grid_density * grid_temp
         # cat("Updated precipitation for country", country_code, ":", updated_precip, "\n")
       }
     }
     
   }
   
-  sink("log.txt", append = TRUE)
-  cat("Finished time itteration:", t, "\n")
-  sink()
   
   return(temp_out_df)  # Return the updated temp_out_df for this iteration
   
+}
+
+stopCluster(cl)
+
+cat("All time iterations completed.\n")
+
+
+# Step 1: Combine the data frames from the list 'results' into one data frame
+final_out_df <- do.call(rbind, results)
+
+# Step 2: Sort the data frame by 'country', then 'year', then 'month'
+final_out_df <- final_out_df[order(final_out_df$country), ]
+
+
+for (i in 1:nrow(final_out_df)) {
+  # Find the row in out_df where year, month, and country match
+  out_df[out_df$year == final_out_df$year[i] &
+           out_df$month == final_out_df$month[i] &
+           out_df$country == final_out_df$country[i], "precipitation"] <- final_out_df$precipitation[i]
+  
+  out_df[out_df$year == final_out_df$year[i] &
+           out_df$month == final_out_df$month[i] &
+           out_df$country == final_out_df$country[i], "temp"] <- final_out_df$temp[i]
 }
 
 
 
 
 
-stopCluster(cl)
 
-cat("All time iterations completed.\n")
-
-write.csv(out_df, "output")
+write.csv2(out_df, "output.csv")
 
 
 
+##################################################################################################
+#                                                                                                #                
+#                              Aggregating and making final output                               #
+#                                                                                                #
+##################################################################################################
 
 
+total_densities <- read_csv("~/PhD/Papers/1/Repository/DataGeneration/TotalDensities.csv")
+
+# Ensure column names match for the join
+names(total_densities) <- c("country", "total_density")
+
+# Join total densities to the out_df data frame
+out_df <- out_df %>%
+  left_join(total_densities, by = "country")
+
+
+yearly_data <- out_df %>%
+  group_by(country, year) %>%
+  summarize(
+    yearly_precipitation = sum(precipitation, na.rm = TRUE)/unique(total_density),  # Summing up the precipitation for each year-country combo
+    yearly_temp=sum(temp, na.rm=TRUE )/unique(total_density)/12
+    
+  )
+
+write.csv2(yearly_data, "final_output.csv")
 
