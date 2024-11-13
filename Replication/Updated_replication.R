@@ -16,7 +16,7 @@ options(scipen = 999, digits = 5)
 ##################################################################################################
 
 # Load the updated dataset
-dataset <- read_xlsx("Replication/Updated_Data/MainData.1.xlsx")
+dataset <- read_xlsx("Replication/Updated_Data/MainData.xlsx")
 
 
 # Define the temperature variable
@@ -25,21 +25,38 @@ dataset$temp <- dataset$Temp_PopWeight
 dataset$temp_sq <- dataset$temp^2
 
 
-dataset$precip<-dataset$Precip_PopWeight
+# Leirvik et al meassures the precipitation in meters. Therefore we divide by 1000 to go from mm to meters
+dataset$precip<-dataset$Precip_PopWeight/1000
 dataset$precip_sq<-dataset$precip^2
 
-# Run the baseline regression model using temp and temp_sq 
-model_Burke <- lm( growthWDI~ temp + temp_sq + precip + precip_sq + factor(Year) + factor(ISO), data = dataset)
 
-model_Leirvik <- lm( growthWDI~ temp + temp_sq + precip + precip_sq + precip:temp + precip:temp_sq + precip_sq:temp + precip_sq:temp_sq + factor(Year) + factor(ISO), data = dataset)
+#define time variable to include time trend 
+dataset$time <- dataset$Year - 1960 + 1  # Assuming 1960 is base year (equal to 1)
+dataset$time_sq <- dataset$time^2
 
-# These results are equivalent to extended data table 1 - base case
-summary(model_Burke)
+
+model_Leirvik <- lm(
+  growthWDI ~ temp + temp_sq + precip + precip_sq + 
+    precip:temp + precip:temp_sq + precip_sq:temp + precip_sq:temp_sq + 
+    factor(Year) + factor(ISO) + time + time_sq,
+  data = dataset
+)
+
+
+
+#Only showing summary statistics for variables of interest
+summary(model_Leirvik)$coefficients[c("temp", "temp_sq", "precip", "precip_sq", "temp:precip", "temp_sq:precip", "temp:precip_sq", "temp_sq:precip_sq"),]
+
+
 
 
 
 
 #####################  Caluclating predictive margins to replicate figure 2.A in Burke ############################
+
+
+# Run the baseline regression model using temp and temp_sq 
+model_Burke <- lm( growthWDI~ temp + temp_sq + precip + precip_sq + factor(Year) + factor(ISO), data = dataset)
 
 
 
@@ -101,12 +118,12 @@ ggplot(results, aes(x = temp, y = avg_prediction)) +
 
 
 
-#####################  Caluclating predictive margins for 10 precipitation deciles, as in Leirvik ############################
+#####################  Caluclating predictive margins for 10 precipitation quantiles, as in Leirvik ############################
+
 
 
 # Step 1: Define the range of temperatures, as before
 temp_values <- seq(-5, 35, by = 1)
-
 
 # Step 1: Create vectors for lower and upper bounds of the confidence intervals
 lower_bound <- numeric(length(temp_values))
@@ -117,31 +134,21 @@ new_data <- model_Leirvik$model  # Use the model's data directly
 colnames(new_data)[6] <- "Year"
 colnames(new_data)[7] <- "ISO"
 
-# Step 2: Compute the 10 deciles of precipitation from the data
-precip_deciles <- quantile(new_data$precip, probs = seq(0.1, 1, by = 0.1), na.rm = TRUE)
-
-# Step 3: Create empty lists to store results
-all_predictions <- list()  # List to store predictions for each decile
-
-# Step 1: Define the range of temperatures, as before
-temp_values <- seq(-5, 35, by = 1)
-
 # Step 1: Compute the 10 deciles of precipitation from the data
-precip_deciles <- quantile(new_data$precip, probs = seq(0.1, 1, by = 0.1), na.rm = TRUE)
+precip_quantiles <- quantile(dataset$precip, probs = seq(0.1, 1, by = 0.1), na.rm="TRUE")
 
 # Step 2: Create empty lists to store results
 all_predictions <- list()  # List to store predictions for each decile
 
+
 # Step 3: Loop over each precipitation decile (ranked 1 to 10)
-for (decile_rank in 1:10) {
+for (decile_rank in 1:9) {
   
   # Get the actual precipitation value corresponding to the current decile
   decile_value <- precip_deciles[decile_rank]
   
   # Create vectors to store the average predictions, lower and upper bounds
   avg_pred_decile <- numeric(length(temp_values))
-  lower_bound_decile <- numeric(length(temp_values))
-  upper_bound_decile <- numeric(length(temp_values))
   
   # Step 4: Loop over each temperature value
   for (i in seq_along(temp_values)) {
@@ -151,7 +158,8 @@ for (decile_rank in 1:10) {
     # Fix temp at the current value and precip at the current decile value
     new_data$temp <- temp_val
     new_data$temp_sq <- temp_val^2
-    new_data$precip <- decile_value  # Fix precipitation at the current decile value
+    new_data$precip <- decile_value
+    new_data$precip_sq <- decile_value^2 
     
     # Step 5: Make predictions for the current temp and precip decile, including standard errors
     pred <- predict(model_Leirvik, newdata = new_data, se.fit = TRUE)
@@ -159,19 +167,13 @@ for (decile_rank in 1:10) {
     # Step 6: Calculate the average prediction and 90% confidence interval
     avg_pred_decile[i] <- mean(pred$fit, na.rm = TRUE)
     
-    # 90% confidence interval (z-value for 90% CI is approximately 1.645)
-    ci_multiplier <- 1.645
-    lower_bound_decile[i] <- mean(pred$fit - ci_multiplier * pred$se.fit, na.rm = TRUE)
-    upper_bound_decile[i] <- mean(pred$fit + ci_multiplier * pred$se.fit, na.rm = TRUE)
   }
   
   # Combine predictions into a data frame for the current decile
   results_decile <- data.frame(
     temp = temp_values,
     avg_prediction = avg_pred_decile,
-    lower_bound = lower_bound_decile,
-    upper_bound = upper_bound_decile,
-    precip_decile = rep(paste0("Decile: ", decile_rank), length(temp_values))  # Use decile rank as the label
+    precip_decile = rep(paste0("Quantile:: ", decile_rank), length(temp_values))  # Use decile rank as the label
   )
   
   # Append the results for the current decile to the list of all predictions
@@ -187,7 +189,8 @@ ggplot(final_results, aes(x = temp, y = avg_prediction, color = factor(precip_de
   labs(title = "Predicted Growth by Temperature for Different Precipitation Deciles",
        x = "Temperature",
        y = "Average Predicted Growth",
-       color = "Precipitation Decile") +  # Label for the legend
+       color = "Precipitation Quantiles") +  # Label for the legend,
+      xlim(0,35)  
   scale_color_viridis_d(option = "plasma") +  # Use a color scale to differentiate deciles
   theme_minimal()
 
