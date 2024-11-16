@@ -15,63 +15,21 @@ options(scipen = 999, digits = 5)
 #                                                                                                #
 ##################################################################################################
 
-
 # Load the dataset
-Original_Data <- read.csv("Replication/Burke_Data/data/input/GrowthClimateDataset.csv")
-
-
-
-
+Original_Data <- read.csv("Replication/GrowthClimateDataset.csv")
 
 # Load the updated dataset
-dataset <- read_xlsx("Replication/Updated_Data/MainData.xlsx")
+dataset <- read_excel("MainData.xlsx")
+
+# Define the range of temperatures, as specified in the article
+temp_values <- seq(-5, 35, by = 1)
 
 
-unique_ISO <- paste0("X_yi_isoXtime_", unique(dataset$ISO))
-
-names(dataset) <- c(names(dataset)[1:18], unique_ISO)
-
-squared_columns <- dataset[, 19:214]^2
-
-
-
-# Add the squared columns back to the dataset with appropriate column names
-colnames(squared_columns) <- paste0("X_y2_isoXtime_",unique(dataset$ISO))   # Optional: Rename new columns
-
-dataset <- cbind(dataset, squared_columns)
-
-write.csv2(dataset, "MainData.csv")
-
-dataset <- read.csv("MainData.csv")
-
-# Define the temperature variable
-dataset$temp <- dataset$Temp_PopWeight
-# Define the quadratic term for temperature
-dataset$temp_sq <- dataset$temp^2
-dataset$precip<-dataset$Precip_PopWeight
-dataset$precip_sq<-dataset$precip^2
-
-up_yi_vars <- grep("_yi_", names(dataset), value = TRUE) ## all variables relating to yi
-up_y2_vars <- grep("_y2_", names(dataset), value = TRUE) ## all variables relating to y2
-
-# Combine the variables to include in the regression
-up_all_additional_vars <- c(up_yi_vars, up_y2_vars)
-
-# Create the full formula dynamically
-# Base formula
-up_formula_base <- as.formula(paste("growthWDI~ temp + temp_sq + precip + precip_sq + factor(Year) + factor(ISO)"))
-
-# Full formula including dynamic variables
-up_full_formula <- update(up_formula_base, paste(". ~ . +", paste(up_all_additional_vars, collapse = " + ")))
-
-
-
-
-
-
-
-
-
+################################### Part 2 #######################################################
+#                                                                                                #                
+#                              Original Model                                                    #
+#                                                                                                #
+##################################################################################################
 
 
 # Define the temperature variable
@@ -98,109 +56,15 @@ formula_base <- as.formula(paste("growthWDI ~ temp + temp_sq + precip + precip_s
 # Full formula including dynamic variables
 full_formula <- update(formula_base, paste(". ~ . +", paste(all_additional_vars, collapse = " + ")))
 
-
-# Define the range of temperatures, as specified in the article
-temp_values <- seq(-5, 35, by = 1)
-
-
-################################### Part 1 #######################################################
-#                                                                                                #                
-#                              Run the 2 different models                                        #
-#                                                                                                #
-##################################################################################################
-
-
-# Run the baseline regression model using temp and temp_sq 
-model_new <- lm(up_full_formula, data = dataset)
-
 # Run the baseline regression model using temp and temp_sq 
 model <- lm(full_formula, data = Original_Data)
-
-
-Updated_Data_filtered <- subset(Updated_Data, `Country Code` %in% original_countries & Year %in% unique(Original_Data$year)) 
-
-model_new_oldData <- lm( growthWDI~ temp + temp_sq + precip + precip_sq + factor(Year) + factor(ISO), data = Updated_Data_filtered)
-
-
-stargazer(model_new, model, model_new_oldData, 
-          title = "Comparison of Models (Specific Coefficients)",
-          column.labels = c("Updated Data", "Original Data", "Updated_old"),
-          dep.var.labels = "Growth (WDI)",
-          covariate.labels = c("Temperature", "Temperature Squared", "Precipitation", "Precipitation Squared"),
-          keep = c("temp", "temp_sq", "precip", "precip_sq"),  # Keep only the temperature and precipitation variables
-          no.space = TRUE, align = TRUE,
-          out = "regression_results.tex")  # Output the LaTeX table to a .tex file
-
-
-
-
-
-
-################################### Part 1 #######################################################
-#                                                                                                #                
-#                             Calculate the predictive margins                                   #
-#                                                                                                #
-##################################################################################################
-
-
-#####################  Caluclating predictive margins for the updated data ############################
-
-
-
-
-
-# Create an empty list to store the average predictions for each temperature
-average_predictions <- vector("list", length(temp_values))
-
-# Step 1: Create vectors for lower and upper bounds of the confidence intervals
-lower_bound <- numeric(length(temp_values))
-upper_bound <- numeric(length(temp_values))
-
-# Step 2: Use the data that was used in the model as the "new_data" in the prediction function
-new_data <- model_new$model  # Use the model's data directly
-
-colnames(new_data)[6] <- "Year"
-colnames(new_data)[7] <- "ISO"
-
-
-# Step 3: Loop over each temperature value
-for (i in seq_along(temp_values)) {
-  
-  temp_val <- temp_values[i]
-  
-  # Step 3: Fix temp at the current value and adjust the quadratic term for temp
-  new_data$temp <- temp_val  
-  new_data$temp_sq <- temp_val^2  
-  
-  # Step 4: Make predictions for the current temp value, including standard errors
-  pred <- predict(model_new, newdata = new_data, se.fit = TRUE)
-  
-  # Step 5: Calculate the average prediction and 90% confidence interval
-  average_predictions[i] <- mean(pred$fit, na.rm = TRUE)
-  
-  # 90% confidence interval (z-value for 90% CI is approximately 1.645)
-  ci_multiplier <- 1.645
-  # lower_bound[i] <- mean(pred$fit - ci_multiplier * pred$se.fit, na.rm = TRUE)
-  # upper_bound[i] <- mean(pred$fit + ci_multiplier * pred$se.fit, na.rm = TRUE)
-}
-
-# Step 4: Combine the results into a data frame
-results <- data.frame(
-  temp = temp_values,
-  avg_prediction = unlist(average_predictions)
-  # lower_bound = lower_bound,
-  # upper_bound = upper_bound
-)
-
-
-
 
 
 #####################  Caluclating predictive margins for the original data ############################
 
 
 # Create an empty list to store the average predictions for each temperature
-average_predictions_old <- vector("list", length(temp_values))
+average_predictions <- vector("list", length(temp_values))
 
 # Step 1: Create vectors for lower and upper bounds of the confidence intervals
 lower_bound <- numeric(length(temp_values))
@@ -242,19 +106,56 @@ results_old <- data.frame(
 )
 
 
-#####################  Caluclating predictive margins for the new data but for the original period ############################
 
+
+
+
+################################### Part 3 #######################################################
+#                                                                                                #                
+#                                 Updated Data                                                   #
+#                                                                                                #
+##################################################################################################
+
+
+# Define the temperature variable 
+dataset$temp <- dataset$TempPopWeight
+# Define the quadratic term for temperature
+dataset$temp_sq <- dataset$temp^2
+dataset$precip<-dataset$PrecipPopWeight
+dataset$precip_sq<-dataset$precip^2
+
+up_yi_vars <- grep("_yi_", names(dataset), value = TRUE) ## all variables relating to yi
+up_y2_vars <- grep("_y2_", names(dataset), value = TRUE) ## all variables relating to y2
+
+# Combine the variables to include in the regression
+up_all_additional_vars <- c(up_yi_vars, up_y2_vars)
+
+# Create the full formula dynamically
+# Base formula
+up_formula_base <- as.formula(paste("GrowthWDI~ temp + temp_sq + precip + precip_sq + factor(Year) + factor(ISO)"))
+
+# Full formula including dynamic variables
+up_full_formula <- update(up_formula_base, paste(". ~ . +", paste(up_all_additional_vars, collapse = " + ")))
+
+
+# Run the baseline regression model using temp and temp_sq 
+model_new <- lm(up_full_formula, data = dataset)
 
 # Create an empty list to store the average predictions for each temperature
-average_predictions_new_oldFilter <- vector("list", length(temp_values))
+average_predictions <- vector("list", length(temp_values))
 
+# Step 1: Create vectors for lower and upper bounds of the confidence intervals
+lower_bound <- numeric(length(temp_values))
+upper_bound <- numeric(length(temp_values))
 
 # Step 2: Use the data that was used in the model as the "new_data" in the prediction function
-new_data <- model_new_oldData$model  # Use the model's data directly
+new_data <- model_new$model  # Use the model's data directly
 
 colnames(new_data)[6] <- "Year"
 colnames(new_data)[7] <- "ISO"
 
+
+#####################  Caluclating predictive margins for the updated data ############################
 
 # Step 3: Loop over each temperature value
 for (i in seq_along(temp_values)) {
@@ -278,14 +179,17 @@ for (i in seq_along(temp_values)) {
 }
 
 # Step 4: Combine the results into a data frame
-results_new_old <- data.frame(
+results <- data.frame(
   temp = temp_values,
   avg_prediction = unlist(average_predictions)
+  # lower_bound = lower_bound,
+  # upper_bound = upper_bound
 )
 
 
 
-################################### Part 1 #######################################################
+
+################################### Part 4 #######################################################
 #                                                                                                #                
 #                             Plotting the predictive margins                                    #
 #                                                                                                #
