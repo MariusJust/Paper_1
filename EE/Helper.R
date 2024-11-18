@@ -1,9 +1,9 @@
 ipolate <- function(mat) {
-  mat1 <- array(dim=c(dim(mat)[1],length(yrs)))
+  mat1 <- array(dim=c(dim(mat)[1],length(years)))
   ys <- as.numeric(unlist(strsplit(names(mat),"X")))
   est <- seq(2010,2100,5)  #the 5yr estimates in the SSP dataset
-  for (i in 1:length(yrs)) {
-    y = yrs[i]
+  for (i in 1:length(years)) {
+    y = years[i]
     if ("X"%&%y %in% names(pop) == T) {  #if the year falls on the 5-yr interval, use their point estimate. otherwise interpolate between nearest endpoints
       mat1[,i]  <- as.numeric(mat[,which(names(mat)=="X"%&%y)])
     } else {
@@ -17,7 +17,7 @@ ipolate <- function(mat) {
     }
   } 
   mat1 <- data.frame(mat[,1:3],mat1)
-  names(mat1)[4:dim(mat1)[2]] <- yrs
+  names(mat1)[4:dim(mat1)[2]] <- years
   return(mat1)
 }
 

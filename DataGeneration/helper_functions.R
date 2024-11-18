@@ -1,4 +1,7 @@
 
+pacman::p_load(raster, sf, ncdf4, readxl, dplyr, rnaturalearth,tidyverse, hash, parallel, foreach, doParallel, snow, utils, data.table, progressr) #installing necessary packages 
+
+
 # Function to get a better understanding of the NC file
 
 NC_info <- function(nc_file) {
@@ -38,6 +41,7 @@ dim <- function(){
 }
 
 # Function that maps each longitude and lattitude grid to a country ISOCODE
+
 match_grid_to_countries <- function(lon_vals, lat_vals, country_shp) {
   # Create a grid of longitude and latitude values (combine them into one table)
   grid_points <- expand.grid(lon = lon_vals, lat = lat_vals)
@@ -121,10 +125,11 @@ year_month <- function(int){
 
 visualise_coordinates <- function(ISO){
   
-  country_shp  <- read_sf("Data/national-identifier-grid/gpw_v4_national_identifier_grid_rev11_30_min.shp")
+  country_shp  <- read_sf("Datageneration/Data/national-identifier-grid/gpw_v4_national_identifier_grid_rev11_30_min.shp")
   
+  country_grid <- read_csv("DataGeneration/Data/country_grid.csv")
   
-  coordinates <- subset(country_grid, country=="DNK")
+  coordinates <- subset(country_grid, country==ISO)
   
   map <- st_geometry(ne_countries(country=subset(country_shp, ISOCODE==ISO)["NAME0"],
                                   returnclass = "sf"))
@@ -135,9 +140,9 @@ visualise_coordinates <- function(ISO){
                aes(x = lon, y = lat),  # Replace with actual column names
                color = "red", size = 2)
   
-  
 }
 
+visualise_coordinates("AUT")
 
 
 
