@@ -17,7 +17,7 @@ source("EE/helper.R")
 ##################################################################################################
 
 # Load the updated dataset
-dataset <- read_excel("MainData.xlsx")
+dataset <- read_excel("Repo/EE/MainData.xlsx")
 
 temp_values <- seq(-5, 35, by = 1)
 #####################  Caluclating predictive margins for 3 democracy levels ############################

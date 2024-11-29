@@ -73,9 +73,13 @@ upper_bound <- numeric(length(temp_values))
 # Step 2: Use the data that was used in the model as the "new_data" in the prediction function
 old_data <- model$model  # Use the model's data directly
 
+
 names(old_data)[names(old_data) == "factor(year)"] <- "year"
 names(old_data)[names(old_data) == "factor(iso_id)"] <- "iso_id"
 
+old_data[, -c(1:3)] <- 0
+  
+  
 # Step 3: Loop over each temperature value
 for (i in seq_along(temp_values)) {
   
@@ -205,7 +209,7 @@ results_old$source <- "Old Model" # Label for the old model results
 combined_results <- rbind(results, results_old)
 
 # Plot both models in the same graph
-ggplot(combined_results, aes(x = temp, y = avg_prediction, color = source)) +
+ggplot(results_old, aes(x = temp, y = avg_prediction, color = source)) +
   geom_line() +  # Plot the predictions for both models
   
   labs(title = "Predicted Growth with 90% Confidence Interval",
