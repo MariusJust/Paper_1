@@ -20,23 +20,61 @@ source("EE/helper.R")
 dataset <- read_excel("MainData.xlsx")
 
 temp_values <- seq(0, 30, by = 1)
-#####################  Caluclating predictive margins for 3 democracy levels ############################
+#####################  Caluclating predictive margins for 3 levels of readiness ############################
 
 #loading readiness data in readinessxlsx as a dataframe
+
 
 readiness <- as.data.frame(read_excel("EE/readiness.xlsx"))
 
 readiness <- melt(readiness, id.vars = c("ISO3", "Name"), variable.name = "Year", value.name = "Readiness")
 
+uniques <-  unique(dataset$CountryCode)
+
+#summarise precipitation, temperature and readiness data  
+summary(summ_statistics_precipitation)
+
+
 readiness$Readiness <- as.numeric(readiness$Readiness)/max(as.numeric(readiness$Readiness), na.rm = TRUE)
 
+readiness_sorted <- sort(readiness$Readiness)
 
-# calculate 3 deciles for the readiness scores
-deciles <- quantile(readiness$Readiness, probs = seq(0, 1, by = 0.33), na.rm = TRUE)
 
+# Calculate deciles for readiness scores
+deciles <- quantile(readiness_sorted, probs = seq(0, 1, by = 0.33), na.rm = TRUE)
 # Step 4: Plot a histogram of readiness scores across all years
-hist(readiness$Readiness, main="Histogram of Readiness Scores Across All Years", 
-     xlab="Readiness Scores", col="skyblue", border="white", breaks=30)
+hist(readiness$Readiness, 
+     xlab="Readiness Scores", col="skyblue", border="white", breaks=100, xlim=c(0,1), main=NULL)
+
+
+# add abline for 2 and 3 decile 
+abline(v = c(deciles[2], deciles[3]), col = c("black", "black"), lty = 2)
+
+
+#assuming that the first readiness score is the same as the period before down until 1960. Specifically I want to extend the readiness with the scores from 1960 to 1994.
+
+# Convert Year column to numeric (if it's not already)
+readiness$Year <- as.numeric(as.character(readiness$Year))
+
+# Get the first readiness score for each country
+first_readiness <- readiness %>%
+  group_by(ISO3) %>%
+  filter(Year == 1995) %>%
+  select(ISO3, Readiness)
+
+# Duplicate the readiness scores for each year from 1960 to 1994
+first_readiness <- first_readiness[rep(row.names(first_readiness), each = 35),]
+
+# Adding the years from 1960 to 1994
+first_readiness$Year <- rep(1960:1994, nrow(first_readiness) / 35)
+
+# Changing so that the first readiness has the following column structure: ISO3, Year, Readiness
+first_readiness <- first_readiness[, c(1, 3, 2)]
+
+# Adding the duplicated readiness scores to the original dataset
+readiness <- rbind(readiness[,-c(2)], first_readiness)
+
+
 
 #Mergin the datasets, first based on year and then by country 
 dataset <- merge(dataset, readiness, by.x = c("CountryCode", "Year"), by.y = c("ISO3", "Year"))
@@ -78,12 +116,16 @@ model_baseline <- lm(
 
 # define the full formula for the extended regression adding interactions with readiness
 full_formula_ready <- update(full_formula, 
-                             paste(". ~ . + ready_med:(temp + temp_sq) + ready_high:(temp + temp_sq)"))
+                             paste(". ~ . + ready_med*(temp + temp_sq+precip+precip_sq) + ready_high*(temp + temp_sq+precip+precip_sq)"))
 
 model_readiness <- lm(
   full_formula_ready,
   data = dataset
 )
+
+
+tail(coef(summary(model_readiness)), n=10)
+
 
 
 #Calculate predictive margins for each readiness level 
@@ -113,6 +155,18 @@ for (readynes_category in names(readiness_categories)) {
   lower_bound <- numeric(length(temp_values))  
   upper_bound <- numeric(length(temp_values))  
   
+  # Set readiness category dummies based on the current category
+  if (readynes_category == "ready_low") {
+    new_data$ready_med <- 0
+    new_data$ready_high <- 0
+  } else if (readynes_category == "ready_med") {
+    new_data$ready_high <- 0
+    
+  } else if (readynes_category == "ready_high") {
+    new_data$ready_med <- 0
+  }
+  
+  
   # Loop through each temperature value to calculate margins
   for (i in seq_along(temp_values)) {
     temp_val <- temp_values[i]
@@ -121,27 +175,12 @@ for (readynes_category in names(readiness_categories)) {
     new_data$temp <- temp_val
     new_data$temp_sq <- temp_val^2
     
-    # Set readiness category dummies based on the current category
-    if (readynes_category == "ready_low") {
-      new_data$ready_med <- 0
-      new_data$ready_high <- 0
-    } else if (readynes_category == "ready_med") {
-      new_data$ready_low <- 0
-  
-    } else if (readynes_category == "ready_high") {
-      new_data$ready_med <- 0
-    }
-    
     # Make predictions for the current temp and readiness category
     pred <- predict(model_readiness, newdata = new_data, se.fit = TRUE)
     
     # Store the average prediction
     avg_pred_ready[i] <- mean(pred$fit, na.rm = TRUE)
     
-    # 95% confidence interval (z-value for 95% CI is 1.96)
-    ci_multiplier <- 1.64
-    lower_bound[i] <- mean(pred$fit - ci_multiplier * pred$se.fit, na.rm = TRUE)
-    upper_bound[i] <- mean(pred$fit + ci_multiplier * pred$se.fit, na.rm = TRUE)
   }
   
   # Combine predictions into a data frame for the current readiness category
@@ -309,4 +348,32 @@ ggplot(averages, aes(x = Year, y = mean, color = Latest_DemocracyStatus)) +
   scale_color_brewer(palette = "Set1")
 
 
+
+
+#making robustness checks 
+
+#excluding oil countries: https://www.theglobaleconomy.com/rankings/oil_revenue/ (countries with oil revenue > 10% of GDP)
+oil_countries <- c("ARE", "BHR", "DZA", "EGY", "IRN", "IRQ", "KWT", "LBY", "OMN", "QAT", "SAU", "SDN", "SYR", "TUN", "YEM")
+
+# excluding oil countries from data: 
+dataset_no_oil <- dataset[!dataset$CountryCode %in% oil_countries,]
+
+model_oil <- lm(
+  full_formula_ready,
+  data = dataset_no_oil
+)
+
+tail(coef(summary(model_oil)))
+
+
+OECD_countries <- c("AUS", "AUT", "BEL", "CAN", "CHL", "COL", "CZE", "DNK", "EST", "FIN", "FRA", "DEU", "GRC", "HUN", "ISL", "IRL", "ISR", "ITA", "JPN", "KOR", "LVA", "LTU", "LUX", "MEX", "NLD", "NZL", "NOR", "POL", "PRT", "SVK", "SVN", "ESP", "SWE", "CHE", "TUR", "GBR", "USA")
+
+dataset_oecd <- dataset[dataset$CountryCode %in% OECD_countries,]
+
+model_oecd <- lm(
+  full_formula_ready,
+  data = dataset_oecd
+)
+
+tail(coef(summary(model_oecd)))
     
