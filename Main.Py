@@ -5,9 +5,12 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import random
+import os
 
 
-data=pd.read_excel('data/MainData.xlsx')
+
+
+data=pd.read_excel('Paper_1/data/MainData.xlsx')
 
 growth, precip, temp = prepare(data)
 

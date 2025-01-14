@@ -1,10 +1,15 @@
 
+
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+
 class static_model:
     """
     Class implementing the static neural network model.
     """
 
-    def __init__(self, nodes, x_train, y_train, pop_train, formulation='global'):
+    def __init__(self, nodes, x_train, y_train, formulation):
         """
         Instantiating class.
 
@@ -18,12 +23,17 @@ class static_model:
         NB: regions are inferred from the keys of x_train and y_train.
         """
 
-        # Initialization
+
+
+#################################################################################################################################################################################################
+#                                                                                                   Parameter initialisation                                                                    #    
+#################################################################################################################################################################################################
+
         self.nodes = nodes
         self.Depth = len(self.nodes)
         self.x_train = x_train
         self.y_train = y_train
-        self.pop_train = pop_train
+      
         self.formulation = formulation
 
         self.individuals = {}
@@ -60,25 +70,42 @@ class static_model:
 
         self.model_pred = None
 
-        # Preparing data
+        # Preparing data - getting the keys from the dictionaries, region names
         self.regions = list(self.x_train.keys())
+        
+        #number of regions
         self.no_regions = len(self.regions)
 
+        #number of time periods, and the specific time periods
         self.T = self.x_train[self.regions[0]].shape[0]
         self.time_periods = self.x_train[self.regions[0]].index.values
 
+
+
+#################################################################################################################################################################################################
+#                                                                                                   Data manipulation                                                                           #    
+#################################################################################################################################################################################################
+        
+        #for each of the regions in the data
         for region in self.regions:
+            #get the columns of the data 
             self.individuals[region] = x_train[region].columns
+            
+            #initialize the time periods not na and time periods na. This tells us, whether there is missing data in each period - MAY be deleted
             self.time_periods_not_na[region] = np.sum(~np.isnan(self.x_train[region]), axis=1) > 0
             self.time_periods_na[region] = np.sum(~self.time_periods_not_na[region])
-
+            
+            #number of countries in each
             self.N[region] = len(self.individuals[region])
 
-            self.x_train_np[region] = np.array(np.log(self.x_train[region] / self.pop_train[region]))
-            self.y_train_df[region] = np.log(self.y_train[region] / self.pop_train[region])
-
+            #casting data from dataframes to numpy arrays
+            self.x_train_np[region] = np.array(self.x_train[region])
+            self.y_train_df[region] = np.array(self.y_train[region])
+            
+            # Total number  of observations
             self.noObs[region] = self.N[region] * self.T - np.isnan(self.x_train_np[region]).sum()
 
+            #Get the min, max and quantiles of the data - WHY used? 
             self.Min[region] = np.nanmin(self.x_train_np[region])
             self.Max[region] = np.nanmax(self.x_train_np[region])
             self.quant025[region] = np.nanquantile(self.x_train_np[region], 0.025)
@@ -87,8 +114,11 @@ class static_model:
             self.quant975[region] = np.nanquantile(self.x_train_np[region], 0.975)
 
             for individual in self.individuals[region]:
+                
+                #get the position of the individual in the data. IE China is the first country in the ASIA region so pos=0 
                 pos = np.where(self.individuals[region] == individual)[0][0]
 
+                #get the min, max and quantiles of the data for each individual country
                 self.Min[individual] = np.nanmin(self.x_train_np[region][:, pos])
                 self.Max[individual] = np.nanmax(self.x_train_np[region][:, pos])
                 self.quant025[individual] = np.nanquantile(self.x_train_np[region][:, pos], 0.025)
@@ -96,22 +126,22 @@ class static_model:
                 self.quant95[individual] = np.nanquantile(self.x_train_np[region][:, pos], 0.95)
                 self.quant975[individual] = np.nanquantile(self.x_train_np[region][:, pos], 0.975)
 
-            self.x_train_transf[region] = self.x_train[region].copy()
-            self.y_train_transf[region] = self.y_train[region].copy()
-            self.pop_train_transf[region] = self.pop_train[region].copy()
 
-            self.x_train_transf[region] = np.array(np.log(self.x_train_transf[region] / self.pop_train_transf[region]))
-            self.y_train_transf[region] = np.array(np.log(self.y_train_transf[region] / self.pop_train_transf[region]))
-
+        # Making data transformation. Start by copying the original data and cast it to numpy arrays
+            self.x_train_transf[region] = np.array(self.x_train[region].copy())
+            self.y_train_transf[region] = np.array(self.y_train[region].copy())
+        
+            #define the missing data for each region. If the data is missing, the mask is set to true
             self.mask[region] = np.isnan(self.x_train_transf[region])
 
+            # createas a nig numpy array of the data, where data from each region is added to the data from the previous region - COULD BE IMPROVED
             if region == self.regions[0]:
                 self.individuals['global'] = list(self.individuals[region])
                 self.time_periods_not_na['global'] = np.sum(~np.isnan(self.x_train[region]), axis=1) > 0
 
                 self.x_train_transf['global'] = self.x_train[self.regions[0]].copy()
                 self.y_train_transf['global'] = self.y_train[self.regions[0]].copy()
-                self.pop_train_transf['global'] = self.pop_train[self.regions[0]].copy()
+        
 
             else:
                 self.individuals['global'] = self.individuals['global'] + list(self.individuals[region])
@@ -119,7 +149,7 @@ class static_model:
 
                 self.x_train_transf['global'] = pd.concat([self.x_train_transf['global'], self.x_train[region]], axis=1)
                 self.y_train_transf['global'] = pd.concat([self.y_train_transf['global'], self.y_train[region]], axis=1)
-                self.pop_train_transf['global'] = pd.concat([self.pop_train_transf['global'], self.pop_train[region]], axis=1)
+                
 
         self.time_periods_na['global'] = np.sum(~self.time_periods_not_na['global'])
 
@@ -139,6 +169,13 @@ class static_model:
         self.y_train_transf['global'] = np.array(np.log(self.y_train_transf['global'] / self.pop_train_transf['global']))
 
         self.mask['global'] = np.isnan(self.x_train_transf['global'])
+
+
+
+#################################################################################################################################################################################################
+#                                                                                                   Model definition                                                                            #    
+#################################################################################################################################################################################################
+        
 
         # Setting up the model
         if formulation == 'national':

@@ -4,7 +4,7 @@ import numpy as np
 
 def prepare(data):
 
-
+    # data=pd.read_excel('data/MainData.xlsx')
 
     #the growth data should contain the following columns: year, county, and GrowthWDI
     growth=data[['CountryCode', 'RegionCode', 'Year', 'GrowthWDI']]
@@ -16,10 +16,6 @@ def prepare(data):
     temp=data[['CountryCode', 'RegionCode', 'Year', 'TempPopWeight']]
 
     #Now I make dictionaries, to capture the region dependent variables
-    #make dictionary to capture each region 
-
-    #find the data that corresponds to germany in th growth data
-    germany_growth=growth[growth['CountryCode']=='DEU']
 
     growth_dict=dict()
     precip_dict=dict()
@@ -37,17 +33,20 @@ def prepare(data):
         #assign the region code and the reference country to variables
         regionCode, referenceCountry = value
         for region_dict, df in dict_and_dfs:
-            #create a dictionary for each region, containing the dataframes for each country in the region
+            #get the region specific data
             region_data = df[df['RegionCode'] == regionCode]
             
-            # Separate the reference country's data
-            reference_country_data = region_data[region_data['CountryCode'] == referenceCountry]
-
-            # Separate the other countries' data (exclude the reference country)
-            other_countries_data = region_data[region_data['CountryCode'] != referenceCountry]
+            # Pivot the data so that the years are the index and the countries are the columns
+            pivot_data = region_data.pivot(index='Year', columns='CountryCode', values=region_data.columns[-1])
             
+            
+            #Reorder the columns so that the reference country is the first column
+            cols = pivot_data.columns.tolist()  # Get current list of columns
+            cols.insert(0, cols.pop(cols.index(referenceCountry)))  # Move reference country to the first column
+            pivot_data = pivot_data[cols]  # Reorder columns in the dataframe
+
             # Concatenate the reference country data on top
-            region_dict[region] = pd.concat([reference_country_data, other_countries_data])
+            region_dict[region] = pivot_data
 
     return growth_dict, precip_dict, temp_dict
    
