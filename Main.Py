@@ -1,6 +1,6 @@
 from Prepare import prepare 
-from Static.Model import static_model as Model
-
+from Static.Model import Model as Model
+import Helper
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -10,7 +10,7 @@ import os
 
 
 
-data=pd.read_excel('Paper_1/data/MainData.xlsx')
+data=pd.read_excel('data/MainData.xlsx')
 
 growth, precip, temp = prepare(data)
 

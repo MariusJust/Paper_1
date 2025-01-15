@@ -3,6 +3,19 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import tensorflow as tf
+import Helper
+from tensorflow.keras.layers import Input, Dense, Layer, Add
+from tensorflow.keras import Model
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.initializers import he_normal, Zeros
+from tensorflow.keras.backend import sigmoid
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.python.keras.utils.generic_utils import get_custom_objects
+
+
+
 
 class static_model:
     """
@@ -151,11 +164,11 @@ class static_model:
                 self.y_train_transf['global'] = pd.concat([self.y_train_transf['global'], self.y_train[region]], axis=1)
                 
 
+### Doing exactly the same as what have been done for the regions, but now for the global data
         self.time_periods_na['global'] = np.sum(~self.time_periods_not_na['global'])
-
         self.N['global'] = np.sum(list(self.N.values()))
 
-        self.x_train_np['global'] = np.array(np.log(self.x_train_transf['global'] / self.pop_train_transf['global']))
+        self.x_train_np['global'] = np.array(self.x_train_transf['global'])
         self.noObs['global'] = self.N['global'] * self.T - np.isnan(self.x_train_np['global']).sum()
 
         self.Min['global'] = np.nanmin(self.x_train_np['global'])
@@ -165,8 +178,8 @@ class static_model:
         self.quant95['global'] = np.nanquantile(self.x_train_np['global'], 0.95)
         self.quant975['global'] = np.nanquantile(self.x_train_np['global'], 0.975)
 
-        self.x_train_transf['global'] = np.array(np.log(self.x_train_transf['global'] / self.pop_train_transf['global']))
-        self.y_train_transf['global'] = np.array(np.log(self.y_train_transf['global'] / self.pop_train_transf['global']))
+        self.x_train_transf['global'] = np.array(self.x_train_transf['global'])
+        self.y_train_transf['global'] = np.array(self.y_train_transf['global'] )
 
         self.mask['global'] = np.isnan(self.x_train_transf['global'])
 
@@ -480,15 +493,24 @@ class static_model:
 
         else:
             # %% Initialization
+            #creates a Tensor with dimension (1, T, N)
             input_x = Input(shape=(1, self.T, self.N['global']))
-
+            
+            #reshapes the predictors (input) and dependent variable (targets) data to a tensor with dimension (1, T, N)
             self.inputs = tf.reshape(tf.convert_to_tensor(self.x_train_transf['global']), (1, self.T, self.N['global']))
             self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T, self.N['global']))
 
             self.Mask = tf.reshape(tf.convert_to_tensor(self.mask['global']), (1, self.T, self.N['global']))
 
+                
+                ##Make a function that defines the forward pass !
+                
             # Creating the forward pass
+            
+            
+            #draws samples from a truncated normal distribution centered on 0
             kernel_initializer_1 = he_normal()
+            #creates tebsir with all elements set to 0
             bias_initializer_1 = Zeros()
 
             kernel_initializer_5 = Zeros()

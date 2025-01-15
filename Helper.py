@@ -50,12 +50,7 @@ class Vectorize(Layer):
     def compute_output_shape(self, input_shape):
         return [(1, self.dim1, 1)]
     
-# testing the function with some sample inputs
-x = np.array([[1, 2, 3], [4, 5, np.nan], [7, 8, 9]])
-x = np.reshape(x, (1, 3, 3))
-vectorize = Vectorize()
-y = vectorize(x)
-y.dim1
+
 
 
 # %% Creating matrixation layer
