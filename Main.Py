@@ -1,11 +1,12 @@
 from Prepare import prepare 
-from Static.Model import Model as Model
+from Static.Model import static_model as Model 
 import Helper
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 import random
 import os
+
 
 
 
@@ -35,29 +36,13 @@ verbose = False                   # verbosity mode for optimization
 nodes_list = [(16, 16, 16)]
 
 
+models_tmp = Model(nodes=nodes_list[0], x_train=temp, y_train=growth, formulation='Global')
 
-# %% Computing BIC
 
+models_tmp.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
 
-models_tmp = [None] 
-BIC_tmp = [None] 
-
-seed_value_tmp = seed_value
-
-for j in range(no_inits):
-    seed_value_tmp = seed_value_tmp + 1
-
-    tf.keras.backend.clear_session()
-    tf.random.set_seed(seed_value_tmp)
-    np.random.seed(seed_value_tmp)
-    random.seed(seed_value_tmp)
-
-    models_tmp[j] = Model(nodes=nodes_list[0], x_train=temp, y_train=growth, formulation='Global')
-
-    models_tmp[j].fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
-
-    models_tmp[j].in_sample_predictions()
-    BIC_tmp[j] = models_tmp[j].BIC
+models_tmp.in_sample_predictions()
+BIC_tmp = models_tmp[j].BIC
 
 
 

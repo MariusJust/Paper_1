@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import tensorflow as tf
-import Helper
-from tensorflow.keras.layers import Input, Dense, Layer, Add
+import keras
+from keras import layers
+from Helper import individual_loss, Dummies, Vectorize, Extend, Matrixize
+from tensorflow.keras.layers import Input, Dense, Add
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.initializers import he_normal, Zeros
-from tensorflow.keras.backend import sigmoid
-from tensorflow.keras.layers import Activation
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 
@@ -30,24 +30,116 @@ class static_model:
             * nodes:          tuple defining the model architecture.
             * x_train:        dict of TxN_r dataframes of input data (aligned) with a key for each region.
             * y_train:        dict of TxN_r dataframes of target data (aligned) with a key for each region.
-            * pop_train:      dict of TxN_r dataframes of population data (aligned) with a key for each region.
             * formulation:    str determining the formulation of the model. Must be one of 'global' or 'regional' or 'national'.
 
         NB: regions are inferred from the keys of x_train and y_train.
         """
-
-
-
-#################################################################################################################################################################################################
-#                                                                                                   Parameter initialisation                                                                    #    
-#################################################################################################################################################################################################
-
+        
         self.nodes = nodes
         self.Depth = len(self.nodes)
         self.x_train = x_train
         self.y_train = y_train
-      
         self.formulation = formulation
+
+        # Initializing parameters
+        self._initialize_parameters()
+        
+        # Preprocessing data
+        self._preprocess_data()
+        
+        # Model definition
+        self._model_definition()
+
+
+    def _model_definition(self):
+        
+        input_x = Input(shape=(self.T, int(self.N['global']))) 
+        
+        #reshapes the predictors (input) and dependent variable (targets) data to a tensor with dimension (1, T, N)
+        self.inputs = tf.reshape(tf.convert_to_tensor(self.x_train_transf['global']), (1, self.T, self.N['global']))
+        self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T, self.N['global']))
+        #creates a mask with dimension (1, T, N) where the mask is set to true if the data is missing
+        self.Mask = tf.reshape(tf.convert_to_tensor(self.mask['global']), (1, self.T, self.N['global']))
+
+        # Creating dummies
+        Delta1, Delta2 = self._create_dummies(input_x)
+        
+        # Creating fixed effects
+        country_FE, time_FE = self._create_fixed_effects(Delta1, Delta2)
+        
+    
+            
+        # Creating the forward pass
+    
+        input_first = Vectorize()(input_x)
+
+        # First hidden layer
+        self.hidden_1 = self._create_hidden_layer(self.nodes[0])
+        hidden_1 = self.hidden_1(input_first)
+
+        # Handle depth and subsequent layers
+        if self.Depth > 1:
+            self.hidden_2 = self._create_hidden_layer(self.nodes[1])
+            hidden_2 = self.hidden_2(hidden_1)
+            
+            if self.Depth > 2:
+                
+                self.hidden_3 = self._create_hidden_layer(self.nodes[2])
+                hidden_3 = self.hidden_3(hidden_2)
+                input_last =  hidden_3
+            else:
+                input_last =  hidden_2
+        else:
+            input_last =  hidden_1
+
+
+        # Creating temporary output layer, without fixed effects
+        output_tmp = self._create_output_layer(input_last)
+
+        # Adding fixed effects
+        output = Add()([time_FE, country_FE, output_tmp])
+
+        # Creating the final output matrix with the correct dimensions
+        output_matrix = Matrixize(N=self.N['global'], T=self.T, noObs=self.noObs['global'], mask=self.Mask)(output)
+
+        # Compiling the model
+        self.model = Model(inputs=input_x, outputs=output_matrix)
+        
+        
+        # Counting number of parameters
+        #self.m = self.count_params()
+
+        #setting up the prediction model
+        input_x_pred = Input(shape=(1, None, 1))
+        self.model_pred=self.setup_prediction_model(input_x_pred)
+        
+    
+
+
+    def _create_dummies(self, input_x):
+        """ Create and apply the dummies layer to input_x. """
+        my_layer = Dummies(N=int(self.N['global']), T=self.T, time_periods_na=self.time_periods_na['global'])
+        return my_layer(input_x)
+    
+    def _create_fixed_effects(self, Delta1, Delta2):
+        """ Create country and time fixed effect layers. """
+        self.country_FE_layer = Dense(1, activation='linear', use_bias=False, kernel_initializer=Zeros())
+        self.time_FE_layer = Dense(1, activation='linear', use_bias=False, kernel_initializer=Zeros())
+        country_FE = self.country_FE_layer(Delta1)
+        time_FE = self.time_FE_layer(Delta2)
+        return country_FE, time_FE
+    
+    def _create_hidden_layer(self, node):
+        """ Create a hidden layer with the specified input and layer number. """
+        kernel_initializer = he_normal()
+        bias_initializer = Zeros()
+        hidden_layer = Dense(node, activation='swish', use_bias=True,
+                             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
+        return hidden_layer
+
+    def _initialize_parameters(self):
+      
+        
 
         self.individuals = {}
         self.N = {}
@@ -93,16 +185,11 @@ class static_model:
         self.T = self.x_train[self.regions[0]].shape[0]
         self.time_periods = self.x_train[self.regions[0]].index.values
 
-
-
-#################################################################################################################################################################################################
-#                                                                                                   Data manipulation                                                                           #    
-#################################################################################################################################################################################################
-        
-        #for each of the regions in the data
+    def _preprocess_data(self):
+          #for each of the regions in the data
         for region in self.regions:
             #get the columns of the data 
-            self.individuals[region] = x_train[region].columns
+            self.individuals[region] = self.x_train[region].columns
             
             #initialize the time periods not na and time periods na. This tells us, whether there is missing data in each period - MAY be deleted
             self.time_periods_not_na[region] = np.sum(~np.isnan(self.x_train[region]), axis=1) > 0
@@ -183,427 +270,66 @@ class static_model:
 
         self.mask['global'] = np.isnan(self.x_train_transf['global'])
 
+    def _create_output_layer(self, input_tensor):
+        """ Create the output layer with the specified input tensor. """
+        kernel_initializer = he_normal()
+        self.output_layer = Dense(1, activation='linear', use_bias=False, kernel_initializer=kernel_initializer)
+        return self.output_layer(input_tensor)
 
-
-#################################################################################################################################################################################################
-#                                                                                                   Model definition                                                                            #    
-#################################################################################################################################################################################################
+    def count_params(self):
         
+        
+        ### needs to be updated count params is deprecated
+        """
+        Counting the number of parameters in the model.
 
-        # Setting up the model
-        if formulation == 'national':
-            # %% Initialization
-            input_x_country = [None] * self.N['global']
-            input_first = [None] * self.N['global']
-            input_last = [None] * self.N['global']
+        RETURNS
+            * m: number of parameters in the model.
+        """
 
-            output_tmp = [None] * self.N['global']
-            output_ext = [None] * self.N['global']
+        m = self.hidden_1.count_params()
 
-            self.inputs = [None] * self.N['global']
-            self.targets = [None] * self.N['global']
+        if self.Depth > 1:
+            m = m + self.hidden_2.count_params()
 
-            self.Mask_country = [None] * self.N['global']
-            self.loss_list = [None] * self.N['global']
+            if self.Depth > 2:
+                m = m + self.hidden_3.count_params()
 
-            self.output_layer = [None] * self.N['global']
-            kernel_initializer_4 = [None] * self.N['global']
+        m = m + self.output_layer.count_params()
 
-            # Building architecture for the mean
-            hidden_1 = [None] * self.N['global']
+        return m
+   
+    def setup_prediction_model(self, input_x_pred):
+        """
+        Setting up the prediction model.
 
-            kernel_initializer_1 = he_normal()
-            bias_initializer_1 = Zeros()
+        ARGUMENTS
+            * input_x_pred: input tensor for the prediction model.
 
-            self.hidden_1_layer = Dense(self.nodes[0], activation='swish', use_bias=True,
-                                        kernel_initializer=kernel_initializer_1, bias_initializer=bias_initializer_1)
+        RETURNS
+            * model_pred: prediction model.
+        """
 
-            if self.Depth > 1:
-                hidden_2 = [None] * self.N['global']
+        hidden_1_pred = self.hidden_1(input_x_pred)
 
-                kernel_initializer_2 = he_normal()
-                bias_initializer_2 = Zeros()
+        if self.Depth > 1:
+            hidden_2_pred = self.hidden_2(hidden_1_pred)
 
-                self.hidden_2_layer = Dense(self.nodes[1], activation='swish', use_bias=True,
-                                            kernel_initializer=kernel_initializer_2,
-                                            bias_initializer=bias_initializer_2)
+            if self.Depth > 2:
+                hidden_3_pred = self.hidden_3(hidden_2_pred)
+                input_last_pred = hidden_3_pred
 
-                if self.Depth > 2:
-                    hidden_3 = [None] * self.N['global']
-
-                    kernel_initializer_3 = he_normal()
-                    bias_initializer_3 = Zeros()
-
-                    self.hidden_3_layer = Dense(self.nodes[2], activation='swish', use_bias=True,
-                                                kernel_initializer=kernel_initializer_3,
-                                                bias_initializer=bias_initializer_3)
-
-            country_counter = 0
-
-            # Creating the forward pass
-            for i in range(self.no_regions):
-                for j in range(self.N[self.regions[i]]):
-                    input_x_country[country_counter] = Input(shape=(1, self.T, 1))
-
-                    self.inputs[country_counter] = tf.reshape(tf.convert_to_tensor(self.x_train_transf[self.regions[i]][:, j]), (1, self.T, 1))
-                    self.targets[country_counter] = tf.reshape(tf.convert_to_tensor(self.y_train_transf[self.regions[i]][:, j]), (1, self.T, 1))
-
-                    self.Mask_country[country_counter] = tf.reshape(tf.convert_to_tensor(self.mask[self.regions[i]][:, j]), (1, self.T, 1))
-                    self.loss_list[country_counter] = individual_loss(mask=self.Mask_country[country_counter])
-
-                    # For the mean
-                    input_first[country_counter] = Vectorize()(input_x_country[country_counter])
-                    hidden_1[country_counter] = self.hidden_1_layer(input_first[country_counter])
-
-                    if self.Depth > 1:
-                        hidden_2[country_counter] = self.hidden_2_layer(hidden_1[country_counter])
-
-                        if self.Depth > 2:
-                            hidden_3[country_counter] = self.hidden_3_layer(hidden_2[country_counter])
-
-                            input_last[country_counter] = hidden_3[country_counter]
-
-                        else:
-                            input_last[country_counter] = hidden_2[country_counter]
-
-                    else:
-                        input_last[country_counter] = hidden_1[country_counter]
-
-                    kernel_initializer_4[country_counter] = he_normal()
-
-                    self.output_layer[country_counter] = Dense(1, activation='linear', use_bias=False,
-                                                               kernel_initializer=kernel_initializer_4[country_counter])
-
-                    output_tmp[country_counter] = self.output_layer[country_counter](input_last[country_counter])
-
-                    output_ext[country_counter] = Extend(mask=self.Mask_country[country_counter])(output_tmp[country_counter])
-
-                    country_counter = country_counter + 1
-
-            # Compiling the model
-            self.model = Model(inputs=input_x_country, outputs=output_ext)
-
-            # Counting number of parameters
-            self.m = self.hidden_1_layer.count_params()
-
-            if self.Depth > 1:
-                self.m = self.m + self.hidden_2_layer.count_params()
-
-                if self.Depth > 2:
-                    self.m = self.m + self.hidden_3_layer.count_params()
-
-            self.m_alt = self.m
-
-            for i in range(self.N['global']):
-                self.m = self.m + self.output_layer[i].count_params()
-
-            # Setting up prediction model
-            self.input_x_pred = [None] * self.N['global']
-            self.hidden_1_pred = [None] * self.N['global']
-            self.hidden_2_pred = [None] * self.N['global']
-            self.hidden_3_pred = [None] * self.N['global']
-            self.output_pred = [None] * self.N['global']
-            self.input_last_pred = [None] * self.N['global']
-
-            self.model_pred = {}
-
-            for i in range(self.N['global']):
-                self.input_x_pred[i] = Input(shape=(1, None, 1))
-                self.hidden_1_pred[i] = self.hidden_1_layer(self.input_x_pred[i])
-
-                if self.Depth > 1:
-                    self.hidden_2_pred[i] = self.hidden_2_layer(self.hidden_1_pred[i])
-
-                    if self.Depth > 2:
-                        self.hidden_3_pred[i] = self.hidden_3_layer(self.hidden_2_pred[i])
-                        self.input_last_pred[i] = self.hidden_3_pred[i]
-
-                    else:
-                        self.input_last_pred[i] = self.hidden_2_pred[i]
-
-                else:
-                    self.input_last_pred[i] = self.hidden_1_pred[i]
-
-                self.output_pred[i] = self.output_layer[i](self.input_last_pred[i])
-
-                self.model_pred[self.individuals['global'][i]] = Model(inputs=self.input_x_pred[i], outputs=self.output_pred[i])
-
-        elif formulation == 'regional':
-            # %% Initialization
-            input_x = [None] * self.no_regions
-            input_first = [None] * self.no_regions
-            input_last = [None] * self.no_regions
-
-            output_tmp = [None] * self.no_regions
-            output = [None] * self.no_regions
-            output_matrix = [None] * self.no_regions
-
-            Delta_1 = [None] * self.no_regions
-            Delta_2 = [None] * self.no_regions
-            country_FE = [None] * self.no_regions
-            time_FE = [None] * self.no_regions
-
-            self.country_FE_layer = [None] * self.no_regions
-            self.time_FE_layer = [None] * self.no_regions
-
-            self.inputs = [None] * self.no_regions
-            self.targets = [None] * self.no_regions
-
-            self.Mask = [None] * self.no_regions
-            self.loss_list = [None] * self.no_regions
-
-            self.output_layer = [None] * self.no_regions
-            kernel_initializer_4 = [None] * self.no_regions
-
-            # Building architecture for the mean
-            hidden_1 = [None] * self.no_regions
-
-            kernel_initializer_1 = he_normal()
-            bias_initializer_1 = Zeros()
-
-            self.hidden_1_layer = Dense(self.nodes[0], activation='swish', use_bias=True,
-                                   kernel_initializer=kernel_initializer_1, bias_initializer=bias_initializer_1)
-
-            if self.Depth > 1:
-                hidden_2 = [None] * self.no_regions
-
-                kernel_initializer_2 = he_normal()
-                bias_initializer_2 = Zeros()
-
-                self.hidden_2_layer = Dense(self.nodes[1], activation='swish', use_bias=True,
-                                       kernel_initializer=kernel_initializer_2, bias_initializer=bias_initializer_2)
-
-                if self.Depth > 2:
-                    hidden_3 = [None] * self.no_regions
-
-                    kernel_initializer_3 = he_normal()
-                    bias_initializer_3 = Zeros()
-
-                    self.hidden_3_layer = Dense(self.nodes[2], activation='swish', use_bias=True,
-                                           kernel_initializer=kernel_initializer_3, bias_initializer=bias_initializer_3)
-
-            # Creating the forward pass
-            for i in range(self.no_regions):
-                input_x[i] = Input(shape=(1, self.T, self.N[self.regions[i]]))
-
-                self.inputs[i] = tf.reshape(tf.convert_to_tensor(self.x_train_transf[self.regions[i]]), (1, self.T, self.N[self.regions[i]]))
-                self.targets[i] = tf.reshape(tf.convert_to_tensor(self.y_train_transf[self.regions[i]]), (1, self.T, self.N[self.regions[i]]))
-
-                self.Mask[i] = tf.reshape(tf.convert_to_tensor(self.mask[self.regions[i]]), (1, self.T, self.N[self.regions[i]]))
-                self.loss_list[i] = individual_loss(mask=self.Mask[i])
-
-                # For the mean
-                Delta_1[i], Delta_2[i] = Dummies(N=self.N[self.regions[i]], T=self.T,
-                                                 time_periods_na=self.time_periods_na[self.regions[i]])(input_x[i])
-
-                input_first[i] = Vectorize()(input_x[i])
-
-                hidden_1[i] = self.hidden_1_layer(input_first[i])
-
-                if self.Depth > 1:
-                    hidden_2[i] = self.hidden_2_layer(hidden_1[i])
-
-                    if self.Depth > 2:
-                        hidden_3[i] = self.hidden_3_layer(hidden_2[i])
-
-                        input_last[i] = hidden_3[i]
-
-                    else:
-                        input_last[i] = hidden_2[i]
-
-                else:
-                    input_last[i] = hidden_1[i]
-
-                kernel_initializer_4[i] = he_normal()
-
-                self.output_layer[i] = Dense(1, activation='linear', use_bias=False,
-                                        kernel_initializer=kernel_initializer_4[i])
-
-                output_tmp[i] = self.output_layer[i](input_last[i])
-
-                # Adding fixed effects
-                kernel_initializer_5 = Zeros()
-                self.time_FE_layer[i] = Dense(1, activation='linear', use_bias=False,
-                                              kernel_initializer=kernel_initializer_5)
-
-                time_FE[i] = self.time_FE_layer[i](Delta_2[i])
-
-                kernel_initializer_6 = Zeros()
-                self.country_FE_layer[i] = Dense(1, activation='linear', use_bias=False,
-                                                 kernel_initializer=kernel_initializer_6)
-
-                country_FE[i] = self.country_FE_layer[i](Delta_1[i])
-
-                output[i] = Add()([time_FE[i], country_FE[i], output_tmp[i]])
-
-                output_matrix[i] = Matrixize(N=self.N[self.regions[i]], T=self.T, noObs=self.noObs[self.regions[i]],
-                                             mask=self.Mask[i])(output[i])
-
-            # Compiling the model
-            self.model = Model(inputs=input_x, outputs=output_matrix)
-
-            # Counting number of parameters
-            self.m = self.hidden_1_layer.count_params()
-
-            if self.Depth > 1:
-                self.m = self.m + self.hidden_2_layer.count_params()
-
-                if self.Depth > 2:
-                    self.m = self.m + self.hidden_3_layer.count_params()
-
-            self.m_alt = self.m
-
-            for i in range(self.no_regions):
-                self.m = self.m + self.output_layer[i].count_params()
-
-            # Setting up prediction model
-            self.input_x_pred = [None] * self.no_regions
-            self.hidden_1_pred = [None] * self.no_regions
-            self.hidden_2_pred = [None] * self.no_regions
-            self.hidden_3_pred = [None] * self.no_regions
-            self.output_pred = [None] * self.no_regions
-            self.input_last_pred = [None] * self.no_regions
-
-            self.model_pred = {}
-
-            for i in range(self.no_regions):
-                self.input_x_pred[i] = Input(shape=(1, None, 1))
-                self.hidden_1_pred[i] = self.hidden_1_layer(self.input_x_pred[i])
-
-                if self.Depth > 1:
-                    self.hidden_2_pred[i] = self.hidden_2_layer(self.hidden_1_pred[i])
-
-                    if self.Depth > 2:
-                        self.hidden_3_pred[i] = self.hidden_3_layer(self.hidden_2_pred[i])
-                        self.input_last_pred[i] = self.hidden_3_pred[i]
-
-                    else:
-                        self.input_last_pred[i] = self.hidden_2_pred[i]
-
-                else:
-                    self.input_last_pred[i] = self.hidden_1_pred[i]
-
-                self.output_pred[i] = self.output_layer[i](self.input_last_pred[i])
-
-                self.model_pred[self.regions[i]] = Model(inputs=self.input_x_pred[i], outputs=self.output_pred[i])
-
-            # Initialization for fixed effects
-            self.alpha = {}
-            self.beta = {}
+            else:
+                input_last_pred = hidden_2_pred
 
         else:
-            # %% Initialization
-            #creates a Tensor with dimension (1, T, N)
-            input_x = Input(shape=(1, self.T, self.N['global']))
-            
-            #reshapes the predictors (input) and dependent variable (targets) data to a tensor with dimension (1, T, N)
-            self.inputs = tf.reshape(tf.convert_to_tensor(self.x_train_transf['global']), (1, self.T, self.N['global']))
-            self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T, self.N['global']))
+            input_last_pred = hidden_1_pred
 
-            self.Mask = tf.reshape(tf.convert_to_tensor(self.mask['global']), (1, self.T, self.N['global']))
+        output_pred = self.output_layer(input_last_pred)
 
-                
-                ##Make a function that defines the forward pass !
-                
-            # Creating the forward pass
-            
-            
-            #draws samples from a truncated normal distribution centered on 0
-            kernel_initializer_1 = he_normal()
-            #creates tebsir with all elements set to 0
-            bias_initializer_1 = Zeros()
+        model_pred = Model(inputs=input_x_pred, outputs=output_pred)
 
-            kernel_initializer_5 = Zeros()
-            kernel_initializer_6 = Zeros()
-
-            self.time_FE_layer = Dense(1, activation='linear', use_bias=False, kernel_initializer=kernel_initializer_5)
-            self.country_FE_layer = Dense(1, activation='linear', use_bias=False, kernel_initializer=kernel_initializer_6)
-
-            Delta_1, Delta_2 = Dummies(N=self.N['global'], T=self.T, time_periods_na=self.time_periods_na['global'])(input_x)
-
-            time_FE = self.time_FE_layer(Delta_2)
-            country_FE = self.country_FE_layer(Delta_1)
-
-            input_first = Vectorize()(input_x)
-
-            self.hidden_1_layer = Dense(self.nodes[0], activation='swish', use_bias=True,
-                                   kernel_initializer=kernel_initializer_1, bias_initializer=bias_initializer_1)
-
-            hidden_1 = self.hidden_1_layer(input_first)
-
-            if self.Depth > 1:
-                kernel_initializer_2 = he_normal()
-                bias_initializer_2 = Zeros()
-
-                self.hidden_2_layer = Dense(self.nodes[1], activation='swish', use_bias=True,
-                                       kernel_initializer=kernel_initializer_2, bias_initializer=bias_initializer_2)
-
-                hidden_2 = self.hidden_2_layer(hidden_1)
-
-                if self.Depth > 2:
-                    kernel_initializer_3 = he_normal()
-                    bias_initializer_3 = Zeros()
-
-                    self.hidden_3_layer = Dense(self.nodes[2], activation='swish', use_bias=True,
-                                           kernel_initializer=kernel_initializer_3, bias_initializer=bias_initializer_3)
-
-                    hidden_3 = self.hidden_3_layer(hidden_2)
-
-                    input_last = hidden_3
-
-                else:
-                    input_last = hidden_2
-
-            else:
-                input_last = hidden_1
-
-            kernel_initializer_4 = he_normal()
-
-            self.output_layer = Dense(1, activation='linear', use_bias=False, kernel_initializer=kernel_initializer_4)
-
-            output_tmp = self.output_layer(input_last)
-
-            # Adding fixed effects
-            output = Add()([time_FE, country_FE, output_tmp])
-
-            output_matrix = Matrixize(N=self.N['global'], T=self.T, noObs=self.noObs['global'], mask=self.Mask)(output)
-
-            # Compiling the model
-            self.model = Model(inputs=input_x, outputs=output_matrix)
-
-            # Counting number of parameters
-            self.m = self.hidden_1_layer.count_params()
-
-            if self.Depth > 1:
-                self.m = self.m + self.hidden_2_layer.count_params()
-
-                if self.Depth > 2:
-                    self.m = self.m + self.hidden_3_layer.count_params()
-
-            self.m_alt = self.m
-
-            self.m = self.m + self.output_layer.count_params()
-
-            # Setting up prediction model
-            input_x_pred = Input(shape=(1, None, 1))
-            hidden_1_pred = self.hidden_1_layer(input_x_pred)
-
-            if self.Depth > 1:
-                hidden_2_pred = self.hidden_2_layer(hidden_1_pred)
-
-                if self.Depth > 2:
-                    hidden_3_pred = self.hidden_3_layer(hidden_2_pred)
-                    input_last_pred = hidden_3_pred
-
-                else:
-                    input_last_pred = hidden_2_pred
-
-            else:
-                input_last_pred = hidden_1_pred
-
-            output_pred = self.output_layer(input_last_pred)
-
-            self.model_pred = Model(inputs=input_x_pred, outputs=output_pred)
+        return model_pred
 
     def fit(self, lr=0.001, min_delta=1e-6, patience=100, verbose=1):
         """
@@ -616,18 +342,12 @@ class static_model:
             * verbose:       verbosity mode for optimization.
         """
 
-        if self.formulation == 'national':
-            self.model.compile(optimizer=Adam(lr), loss=self.loss_list, loss_weights=[1 / self.N['global']] * self.N['global'])
-
-        elif self.formulation == 'regional':
-            self.model.compile(optimizer=Adam(lr), loss=self.loss_list, loss_weights=[1 / self.no_regions] * self.no_regions)
-
-        else:
-            self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask))
+        self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask))
 
         callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
                                    restore_best_weights=True, verbose=verbose)]
-
+   
+        
         self.model.fit(self.inputs, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
 
         self.losses = self.model.history.history
@@ -636,23 +356,12 @@ class static_model:
         self.params = self.model.get_weights()
 
         # Saving fixed effects estimates
-        if self.formulation == 'national':
-            pass
 
-        elif self.formulation == 'regional':
-            for i in range(self.no_regions):
-                self.alpha[self.regions[i]] = pd.DataFrame(self.country_FE_layer[i].weights[0].numpy().T)
-                self.alpha[self.regions[i]].columns = self.individuals[self.regions[i]][1:]
+        self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
+        self.alpha.columns = self.individuals['global'][1:]
 
-                self.beta[self.regions[i]] = pd.DataFrame(self.time_FE_layer[i].weights[0].numpy())
-                self.beta[self.regions[i]].set_index(self.time_periods[self.time_periods_na[self.regions[i]] + 1:], inplace=True)
-
-        else:
-            self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
-            self.alpha.columns = self.individuals['global'][1:]
-
-            self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
-            self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:], inplace=True)
+        self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
+        self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:], inplace=True)
 
     def load_params(self, filepath):
         """
@@ -665,24 +374,11 @@ class static_model:
         self.model.load_weights(filepath)
         self.params = self.model.get_weights()
 
-        # Saving fixed effects estimates
-        if self.formulation == 'national':
-            pass
+        self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
+        self.alpha.columns = self.individuals['global'][1:]
 
-        elif self.formulation == 'regional':
-            for i in range(self.no_regions):
-                self.alpha[self.regions[i]] = pd.DataFrame(self.country_FE_layer[i].weights[0].numpy().T)
-                self.alpha[self.regions[i]].columns = self.individuals[self.regions[i]][1:]
-
-                self.beta[self.regions[i]] = pd.DataFrame(self.time_FE_layer[i].weights[0].numpy())
-                self.beta[self.regions[i]].set_index(self.time_periods[self.time_periods_na[self.regions[i]] + 1:], inplace=True)
-
-        else:
-            self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
-            self.alpha.columns = self.individuals['global'][1:]
-
-            self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
-            self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:], inplace=True)
+        self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
+        self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:], inplace=True)
 
     def save_params(self, filepath):
         """
@@ -709,17 +405,8 @@ class static_model:
         for region in self.regions:
             self.in_sample_pred[region] = self.y_train[region].copy()
 
-            if self.formulation == 'national':
-                for i in range(self.N[region]):
-                    self.in_sample_pred[region].iloc[:, i] = np.array(in_sample_preds[country_counter][0, :, 0])
-                    country_counter = country_counter + 1
-
-            elif self.formulation == 'regional':
-                self.in_sample_pred[region].iloc[:, :] = np.array(in_sample_preds[self.regions.index(region)][0, :, :])
-
-            else:
-                self.in_sample_pred[region].iloc[:, :] = np.array(in_sample_preds[0, :, N_agg:N_agg+self.N[region]])
-                N_agg = N_agg + self.N[region]
+            self.in_sample_pred[region].iloc[:, :] = np.array(in_sample_preds[0, :, N_agg:N_agg+self.N[region]])
+            N_agg = N_agg + self.N[region]
 
             if self.regions.index(region) == 0:
                 in_sample_pred_global = self.in_sample_pred[region]
@@ -734,20 +421,7 @@ class static_model:
             SST = np.sum(np.sum((self.y_train_df[region] - mean_tmp) ** 2))
             self.R2[region] = 1 - SSR / SST
             self.MSE[region] = SSR / self.noObs[region]
-
-            if self.formulation == 'national':
-                for i in range(self.N[region]):
-                    SSR = np.sum((self.y_train_df[region].iloc[:, i] - self.in_sample_pred[region].iloc[:, i]) ** 2)
-                    noObs_tmp = np.sum(~np.isnan(self.y_train_df[region]).iloc[:, i])
-
-                    sigma2_tmp = sigma2_tmp + (1 / self.N['global']) * (SSR / noObs_tmp)
-
-            elif self.formulation == 'regional':
-                sigma2_tmp = sigma2_tmp + (1 / self.no_regions) * (SSR / self.noObs[region])
-                noObs_tmp = noObs_tmp + self.noObs[region]
-
-            else:
-                sigma2_tmp = sigma2_tmp + SSR
+            sigma2_tmp = sigma2_tmp + SSR
 
         mean_tmp = np.nanmean(np.reshape(np.array(in_sample_global), (-1)))
 
@@ -780,11 +454,7 @@ class static_model:
 
         x_test_tf = tf.convert_to_tensor(np.reshape(x_test, (1, -1, 1)))
 
-        if self.formulation in ['national', 'regional']:
-            pred_np = np.reshape(self.model_pred[idx].predict(x_test_tf), (-1, 1), order='F')
-
-        else:
-            pred_np = np.reshape(self.model_pred.predict(x_test_tf), (-1, 1), order='F')
+        pred_np = np.reshape(self.model_pred.predict(x_test_tf), (-1, 1), order='F')
 
         pred_df = pd.DataFrame(pred_np)
         pred_df.set_index(np.reshape(x_test, (-1,)), inplace=True)

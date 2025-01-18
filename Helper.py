@@ -47,8 +47,7 @@ class Vectorize(Layer):
 
         return y
 
-    def compute_output_shape(self, input_shape):
-        return [(1, self.dim1, 1)]
+
     
 
 
@@ -79,9 +78,7 @@ class Matrixize(Layer):
 
         return scatter + scatter_nan
 
-    def compute_output_shape(self, input_shape):
-        return [(1, self.T, self.N)]
-
+   
 
 # %% Creating extend layer
 class Extend(Layer):
@@ -107,8 +104,10 @@ class Extend(Layer):
 
         return scatter + scatter_nan
 
-    def compute_output_shape(self, input_shape):
-        return [(1, self.T, 1)]
+
+
+
+
 
 
 # %% Creating dummy layer
@@ -123,15 +122,18 @@ class Dummies(Layer):
         self.T = T
         self.time_periods_na = time_periods_na
         self.noObs = None
-
+    
     def call(self, x):
         where_mat = tf.transpose(tf.math.is_nan(x))
 
         for t in range(self.T):
+            # print(where_mat[:, t, 0].np())
             idx = tf.where(~where_mat[:, t, 0])
             idx = tf.reshape(idx, (-1,))
 
+            #Constructs and identity matrix, so that all count
             D_t = tf.eye(self.N)
+            #gathers from D_t according to the indices in idx
             D_t = tf.gather(D_t, idx, axis=0)
 
             if t == 0:
@@ -153,14 +155,18 @@ class Dummies(Layer):
         Delta_2 = Delta_2[:, self.time_periods_na + 1:]
 
         self.noObs = tf.shape(Delta_1)[0]
-
+        
         Delta_1 = tf.reshape(Delta_1, (1, self.noObs, self.N - 1))
         Delta_2 = tf.reshape(Delta_2, (1, self.noObs, self.T - (self.time_periods_na + 1)))
 
         return [Delta_1, Delta_2]
 
-    def compute_output_shape(self, input_shape):
-        return [(1, self.noObs, self.N - 1), (1, self.noObs, self.T - (self.time_periods_na + 1))]
+    # def compute_output_shape(self):
+    #     return [(1, self.noObs, self.N - 1), (1, self.noObs, self.T - (self.time_periods_na + 1))]
+
+
+
+
 
 
 # %% Creating custom loss function
@@ -187,7 +193,7 @@ def individual_loss(mask):
 
         y_true_transf = tf.reshape(y_true[~mask], (1, -1, 1))
         y_pred_transf = tf.reshape(y_pred[~mask], (1, -1, 1))
-
-        return tf.reduce_mean(tf.math.squared_difference(y_true_transf, y_pred_transf), axis=1)
+        loss=tf.reduce_mean(tf.math.squared_difference(y_true_transf, y_pred_transf), axis=1)
+        return loss
 
     return loss
