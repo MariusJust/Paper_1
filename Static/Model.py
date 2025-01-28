@@ -1,19 +1,16 @@
-
-
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import tensorflow as tf
 import keras
 from keras import layers
-from Helper import individual_loss, Dummies, Vectorize, Extend, Matrixize
+from Helper import individual_loss, Dummies, Vectorize, Matrixize
 from tensorflow.keras.layers import Input, Dense, Add
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.initializers import he_normal, Zeros
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.utils.generic_utils import get_custom_objects
-
+from tensorflow.python.keras.backend import count_params
 
 
 
@@ -107,7 +104,8 @@ class static_model:
         
         
         # Counting number of parameters
-        #self.m = self.count_params()
+        
+        self.m = sum(count_params(w) for w in self.model.trainable_weights)
 
         #setting up the prediction model
         input_x_pred = Input(shape=(1, None, 1))
@@ -331,7 +329,7 @@ class static_model:
 
         return model_pred
 
-    def fit(self, lr=0.001, min_delta=1e-6, patience=100, verbose=1):
+    def fit(self, lr=0.001, min_delta=1e-4, patience=20, verbose=2):
         """
         Fitting the model.
 
@@ -349,8 +347,9 @@ class static_model:
    
         
         self.model.fit(self.inputs, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
-
+        
         self.losses = self.model.history.history
+       
         self.epochs = self.model.history.epoch
 
         self.params = self.model.get_weights()
@@ -413,7 +412,7 @@ class static_model:
                 in_sample_global = self.y_train_df[region]
             else:
                 in_sample_pred_global = pd.concat([in_sample_pred_global, self.in_sample_pred[region]], axis=1)
-                in_sample_global = pd.concat([in_sample_global, self.y_train_df[region]], axis=1)
+                in_sample_global = np.concatenate([in_sample_global, self.y_train_df[region]], axis=1)
 
             mean_tmp = np.nanmean(np.reshape(np.array(self.y_train_df[region]), (-1)))
 

@@ -13,104 +13,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 
 
-# Creating Swish activation function
-def swish(x, beta=1):
-    """
-    Swish activation function.
 
-    ARGUMENTS
-        * x:    input variable.
-        * beta: hyperparameter of the Swish activation function.
-
-    Returns
-        * Swish activation function applied to x.
-    """
-
-    return x * sigmoid(beta * x)
-
-# %% Creating vectorization layer
-class Vectorize(Layer):
-    """
-    Layer that vectorizes the second dimension of inputs.
-    """
-
-    def __init__(self, **kwargs):
-        super(Vectorize, self).__init__(**kwargs)
-        self.dim1 = None
-
-    def call(self, x):
-        where_mat = tf.math.is_nan(x)
-
-        y = tf.reshape(x[~where_mat], (1, -1, 1))
-
-        self.dim1 = tf.shape(y)[1]
-
-        return y
-
-
-    
-
-
-
-# %% Creating matrixation layer
-class Matrixize(Layer):
-    """
-    Layer that matrixizes the second dimension of inputs.
-    """
-
-    def __init__(self, N, T, noObs, mask, **kwargs):
-        super(Matrixize, self).__init__(**kwargs)
-        self.N = N
-        self.T = T
-        self.noObs = noObs
-        self.mask = mask
-
-    def call(self, x):
-        where = ~self.mask
-        indices = tf.cast(tf.where(where), tf.int32)
-        scatter = tf.scatter_nd(indices, tf.reshape(x, (-1,)), shape=tf.shape(self.mask))
-        scatter = tf.cast(scatter, dtype=np.float64)
-
-        indices = tf.cast(tf.where(~where), tf.int32)
-        x_nan = tf.ones(self.N * self.T - self.noObs) * np.nan
-        scatter_nan = tf.scatter_nd(indices, x_nan, shape=tf.shape(self.mask))
-        scatter_nan = tf.cast(scatter_nan, dtype=np.float64)
-
-        return scatter + scatter_nan
-
-   
-
-# %% Creating extend layer
-class Extend(Layer):
-    """
-    Layer that extends the second dimension of inputs.
-    """
-
-    def __init__(self, mask, **kwargs):
-        super(Extend, self).__init__(**kwargs)
-        self.mask = mask
-
-    def call(self, x):
-        where = ~self.mask
-        indices = tf.cast(tf.where(where), tf.int32)
-        scatter = tf.scatter_nd(indices, tf.reshape(x, (-1,)), shape=tf.shape(self.mask))
-        scatter = tf.cast(scatter, dtype=np.float64)
-
-        indices = tf.cast(tf.where(~where), tf.int32)
-        mask_tmp = tf.cast(self.mask, tf.int32)
-        x_nan = tf.ones(tf.reduce_sum(mask_tmp)) * np.nan
-        scatter_nan = tf.scatter_nd(indices, x_nan, shape=tf.shape(self.mask))
-        scatter_nan = tf.cast(scatter_nan, dtype=np.float64)
-
-        return scatter + scatter_nan
-
-
-
-
-
-
-
-# %% Creating dummy layer
 class Dummies(Layer):
     """
     Layer that creates country and time dummies.
@@ -161,12 +64,29 @@ class Dummies(Layer):
 
         return [Delta_1, Delta_2]
 
-    # def compute_output_shape(self):
-    #     return [(1, self.noObs, self.N - 1), (1, self.noObs, self.T - (self.time_periods_na + 1))]
 
+class Extend(Layer):
+    """
+    Layer that extends the second dimension of inputs.
+    """
 
+    def __init__(self, mask, **kwargs):
+        super(Extend, self).__init__(**kwargs)
+        self.mask = mask
 
+    def call(self, x):
+        where = ~self.mask
+        indices = tf.cast(tf.where(where), tf.int32)
+        scatter = tf.scatter_nd(indices, tf.reshape(x, (-1,)), shape=tf.shape(self.mask))
+        scatter = tf.cast(scatter, dtype=np.float64)
 
+        indices = tf.cast(tf.where(~where), tf.int32)
+        mask_tmp = tf.cast(self.mask, tf.int32)
+        x_nan = tf.ones(tf.reduce_sum(mask_tmp)) * np.nan
+        scatter_nan = tf.scatter_nd(indices, x_nan, shape=tf.shape(self.mask))
+        scatter_nan = tf.cast(scatter_nan, dtype=np.float64)
+
+        return scatter + scatter_nan
 
 
 # %% Creating custom loss function
@@ -197,3 +117,116 @@ def individual_loss(mask):
         return loss
 
     return loss
+
+
+class Matrixize(Layer):
+    """
+    Layer that matrixizes the second dimension of inputs.
+    """
+
+    def __init__(self, N, T, noObs, mask, **kwargs):
+        super(Matrixize, self).__init__(**kwargs)
+        self.N = N
+        self.T = T
+        self.noObs = noObs
+        self.mask = mask
+
+    def call(self, x):
+        where = ~self.mask
+        indices = tf.cast(tf.where(where), tf.int32)
+        scatter = tf.scatter_nd(indices, tf.reshape(x, (-1,)), shape=tf.shape(self.mask))
+        scatter = tf.cast(scatter, dtype=np.float64)
+
+        indices = tf.cast(tf.where(~where), tf.int32)
+        x_nan = tf.ones(self.N * self.T - self.noObs) * np.nan
+        scatter_nan = tf.scatter_nd(indices, x_nan, shape=tf.shape(self.mask))
+        scatter_nan = tf.cast(scatter_nan, dtype=np.float64)
+
+        return scatter + scatter_nan
+
+
+def prepare(data):
+
+    #the growth data should contain the following columns: year, county, and GrowthWDI
+    growth=data[['CountryCode', 'RegionCode', 'Year', 'GrowthWDI']]
+
+    #precipitation data
+    precip=data[['CountryCode', 'RegionCode', 'Year', 'PrecipPopWeight']]
+
+    #temperature data
+    temp=data[['CountryCode', 'RegionCode', 'Year', 'TempPopWeight']]
+
+    #Now I make dictionaries, to capture the region dependent variables
+
+    growth_dict=dict()
+    precip_dict=dict()
+    temp_dict=dict()
+
+    # dictionary that holds the region code and the reference country in each region
+    regions = {'Asia': [142, "CHN"], 'Europe': [150, 'DEU'], 'Africa': [2, 'ZAF'], 'Americas': [19, 'USA'], 'Oceania': [9, 'AUS']}
+
+    dict_and_dfs = [(growth_dict, growth),
+        (precip_dict, precip),
+        (temp_dict, temp)]
+
+    #Now I will loop through the regions and create a dataframe for each region
+    for region, value in regions.items():
+        #assign the region code and the reference country to variables
+        regionCode, referenceCountry = value
+        for region_dict, df in dict_and_dfs:
+            #get the region specific data
+            region_data = df[df['RegionCode'] == regionCode]
+            
+            # Pivot the data so that the years are the index and the countries are the columns
+            pivot_data = region_data.pivot(index='Year', columns='CountryCode', values=region_data.columns[-1])
+            
+            
+            #Reorder the columns so that the reference country is the first column
+            cols = pivot_data.columns.tolist()  # Get current list of columns
+            cols.insert(0, cols.pop(cols.index(referenceCountry)))  # Move reference country to the first column
+            pivot_data = pivot_data[cols]  # Reorder columns in the dataframe
+
+            # Concatenate the reference country data on top
+            region_dict[region] = pivot_data
+
+    return growth_dict, precip_dict, temp_dict
+   
+     
+def swish(x, beta=1):
+    """
+    Swish activation function.
+
+    ARGUMENTS
+        * x:    input variable.
+        * beta: hyperparameter of the Swish activation function.
+
+    Returns
+        * Swish activation function applied to x.
+    """
+
+    return x * sigmoid(beta * x)   
+        
+
+# %% Creating vectorization layer
+class Vectorize(Layer):
+    """
+    Layer that vectorizes the second dimension of inputs.
+    """
+
+    def __init__(self, **kwargs):
+        super(Vectorize, self).__init__(**kwargs)
+        self.dim1 = None
+
+    def call(self, x):
+        where_mat = tf.math.is_nan(x)
+
+        y = tf.reshape(x[~where_mat], (1, -1, 1))
+
+        self.dim1 = tf.shape(y)[1]
+
+        return y
+
+
+    
+   
+    
