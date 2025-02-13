@@ -1,10 +1,4 @@
-# this script prepares the data for the analysis
-import pandas as pd
-import numpy as np
-
-def prepare(data):
-
-    # data=pd.read_excel('data/MainData.xlsx')
+def Prepare(data):
 
     #the growth data should contain the following columns: year, county, and GrowthWDI
     growth=data[['CountryCode', 'RegionCode', 'Year', 'GrowthWDI']]
@@ -49,10 +43,3 @@ def prepare(data):
             region_dict[region] = pivot_data
 
     return growth_dict, precip_dict, temp_dict
-   
-        
-        
-        
-    
-   
-    

@@ -1,9 +1,8 @@
 import numpy as np
-import pandas as pd
 import tensorflow as tf
-import keras
-from keras import layers
-from Helper import individual_loss, Dummies, Vectorize, Matrixize
+import pandas as pd 
+from util import Dummies, individual_loss, Extend, Vectorize, Matrixize
+
 from tensorflow.keras.layers import Input, Dense, Add
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
@@ -152,11 +151,7 @@ class static_model:
 
         self.Min = {}
         self.Max = {}
-        self.quant025 = {}
-        self.quant05 = {}
-        self.quant95 = {}
-        self.quant975 = {}
-
+        
         self.x_train_np = {}
         self.y_train_df = {}
 
@@ -206,10 +201,7 @@ class static_model:
             #Get the min, max and quantiles of the data - WHY used? 
             self.Min[region] = np.nanmin(self.x_train_np[region])
             self.Max[region] = np.nanmax(self.x_train_np[region])
-            self.quant025[region] = np.nanquantile(self.x_train_np[region], 0.025)
-            self.quant05[region] = np.nanquantile(self.x_train_np[region], 0.05)
-            self.quant95[region] = np.nanquantile(self.x_train_np[region], 0.95)
-            self.quant975[region] = np.nanquantile(self.x_train_np[region], 0.975)
+           
 
             for individual in self.individuals[region]:
                 
@@ -219,10 +211,6 @@ class static_model:
                 #get the min, max and quantiles of the data for each individual country
                 self.Min[individual] = np.nanmin(self.x_train_np[region][:, pos])
                 self.Max[individual] = np.nanmax(self.x_train_np[region][:, pos])
-                self.quant025[individual] = np.nanquantile(self.x_train_np[region][:, pos], 0.025)
-                self.quant05[individual] = np.nanquantile(self.x_train_np[region][:, pos], 0.05)
-                self.quant95[individual] = np.nanquantile(self.x_train_np[region][:, pos], 0.95)
-                self.quant975[individual] = np.nanquantile(self.x_train_np[region][:, pos], 0.975)
 
 
         # Making data transformation. Start by copying the original data and cast it to numpy arrays
@@ -258,10 +246,7 @@ class static_model:
 
         self.Min['global'] = np.nanmin(self.x_train_np['global'])
         self.Max['global'] = np.nanmax(self.x_train_np['global'])
-        self.quant025['global'] = np.nanquantile(self.x_train_np['global'], 0.025)
-        self.quant05['global'] = np.nanquantile(self.x_train_np['global'], 0.05)
-        self.quant95['global'] = np.nanquantile(self.x_train_np['global'], 0.95)
-        self.quant975['global'] = np.nanquantile(self.x_train_np['global'], 0.975)
+   
 
         self.x_train_transf['global'] = np.array(self.x_train_transf['global'])
         self.y_train_transf['global'] = np.array(self.y_train_transf['global'] )
@@ -329,7 +314,7 @@ class static_model:
 
         return model_pred
 
-    def fit(self, lr=0.001, min_delta=1e-4, patience=20, verbose=2):
+    def fit(self, lr, min_delta, patience, verbose):
         """
         Fitting the model.
 
@@ -397,13 +382,21 @@ class static_model:
 
         in_sample_preds = self.model(self.inputs)
         sigma2_tmp = 0
-        noObs_tmp = 0
         N_agg = 0
-        country_counter = 0
+        
 
+
+# mean_observed = np.nanmean(observed)
+#     SST = np.sum((observed - mean_observed) ** 2)
+#     pred = pred[~np.isnan(pred)]
+#     SSR = np.sum((pred - mean_observed) ** 2)
+#     R2 = SSR / SST
+    
+    
+        
+    
         for region in self.regions:
             self.in_sample_pred[region] = self.y_train[region].copy()
-
             self.in_sample_pred[region].iloc[:, :] = np.array(in_sample_preds[0, :, N_agg:N_agg+self.N[region]])
             N_agg = N_agg + self.N[region]
 
@@ -418,6 +411,10 @@ class static_model:
 
             SSR = np.sum(np.sum((self.y_train_df[region] - self.in_sample_pred[region]) ** 2))
             SST = np.sum(np.sum((self.y_train_df[region] - mean_tmp) ** 2))
+            
+            
+            
+            
             self.R2[region] = 1 - SSR / SST
             self.MSE[region] = SSR / self.noObs[region]
             sigma2_tmp = sigma2_tmp + SSR
@@ -429,14 +426,8 @@ class static_model:
         self.R2['global'] = 1 - SSR / SST
         self.MSE['global'] = SSR / self.noObs['global']
 
-        if self.formulation == 'national':
-            self.BIC = np.log(sigma2_tmp) + self.m * np.log(self.noObs['global']) / self.noObs['global']
-
-        elif self.formulation == 'regional':
-            self.BIC = np.log(sigma2_tmp) + self.m * np.log(noObs_tmp) / noObs_tmp
-
-        else:
-            self.BIC = np.log(sigma2_tmp) - np.log(self.noObs['global']) + self.m * np.log(self.noObs['global']) / self.noObs['global']
+        self.BIC = np.log(sigma2_tmp) - np.log(self.noObs['global']) + self.m * np.log(self.noObs['global']) / self.noObs['global']
+        return in_sample_preds
 
     def predict(self, x_test, idx=False):
         """
@@ -450,9 +441,9 @@ class static_model:
         RETURNS
             * pred_df: Dataframe containing predictions.
         """
-
-        x_test_tf = tf.convert_to_tensor(np.reshape(x_test, (1, -1, 1)))
-
+        
+        x_test_tf = tf.convert_to_tensor(x_test)
+        
         pred_np = np.reshape(self.model_pred.predict(x_test_tf), (-1, 1), order='F')
 
         pred_df = pd.DataFrame(pred_np)
