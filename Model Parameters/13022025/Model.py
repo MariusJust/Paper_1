@@ -24,7 +24,7 @@ class static_model:
 
         ARGUMENT
             * nodes:          tuple defining the model architecture.
-            * x_train:        array of dicts of TxN_r dataframes of input data (aligned) with a key for each region.
+            * x_train:        dict of TxN_r dataframes of input data (aligned) with a key for each region.
             * y_train:        dict of TxN_r dataframes of target data (aligned) with a key for each region.
             * formulation:    str determining the formulation of the model. Must be one of 'global' or 'regional' or 'national'.
 
@@ -247,6 +247,7 @@ class static_model:
         self.Min['global'] = np.nanmin(self.x_train_np['global'])
         self.Max['global'] = np.nanmax(self.x_train_np['global'])
    
+
         self.x_train_transf['global'] = np.array(self.x_train_transf['global'])
         self.y_train_transf['global'] = np.array(self.y_train_transf['global'] )
 
