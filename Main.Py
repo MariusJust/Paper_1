@@ -1,4 +1,6 @@
-from Static.Model import static_model as Model 
+
+from util import Prepare
+from Static import static_model as Model
 from multiprocessing import Pool
 import time
 import os
@@ -7,21 +9,7 @@ import numpy as np
 import tensorflow as tf
 import random
 import warnings
-# Importing libraries
-
-from Helper import prepare
-
-
-
-
-#import the python packages from utils
-
-
-warnings.filterwarnings("ignore")
-data=pd.read_excel('data/MainData.xlsx')
-
-growth, precip, temp = prepare(data)
-
+from tqdm import tqdm
 
 
 nodes_list = [(2,), (4,), (8,), (16,), (32,), (2,2,), (4,2,), (4,4,), (8,2,), (8,4,), (8,8,), (16,2,), (16,4,), (16,8,),
@@ -32,27 +20,42 @@ nodes_list = [(2,), (4,), (8,), (16,), (32,), (2,2,), (4,2,), (4,4,), (8,2,), (8
               (32,32,16,), (32,32,32,)]
 
 
-# Setting optional choice parameters
-no_inits = 10                    # number of different initializations
+
+no_inits = 25                    # number of different initializations
 seed_value = 0                                                
 lr = 0.001                        # initial learning rate for the Adam optimizer
-min_delta = 1e-4                  # tolerance to be used for optimization
-patience = 20                    # patience to be used for optimization
-verbose = False                   # verbosity mode for optimization
+min_delta = 1e-6                  # tolerance to be used for optimization
+patience = 100                    # patience to be used for optimization
+verbose = 0                   # verbosity mode for optimization
+
+
+def setup():
+    # Importing libraries
+
+    warnings.filterwarnings("ignore")
+    data=pd.read_excel('data/MainData.xlsx')
+
+    growth, precip, temp = Prepare(data)
+
+    return growth, precip, temp
 
 
 
-            
 def model(node):
+
+    
+    growth, precip, temp = setup()
+    
     print(f"Process {os.getpid()} started working on node {nodes_list[node]}. \n")
     
     models_tmp = [None] * no_inits
     BIC_tmp = [None] * no_inits
+    R2_tmp = [None] * no_inits
     seed_value_tmp = seed_value
     
     for j in range(no_inits):
-        seed_value_tmp = seed_value + j  # Ensure each process uses a different seed
-
+        seed_value_tmp = seed_value_tmp + 1  # Ensure each process uses a different seed
+        
         tf.keras.backend.clear_session()  # Clear previous models and sessions
         tf.random.set_seed(seed_value_tmp)
         np.random.default_rng(seed_value_tmp)
@@ -64,11 +67,21 @@ def model(node):
 
         models_tmp[j].in_sample_predictions()
         BIC_tmp[j] = models_tmp[j].BIC
-        print(f"Process {os.getpid()} finished calculating the BIC in itteration {j} \n")
-    #return the best BIC and the model architecture
+        R2_tmp[j] = models_tmp[j].R2['global'] 
+        
+        
+    #saving BIC for all initializations
+    np.save('BIC/' + str(nodes_list[node]) + '.npy' , BIC_tmp)
     
+    #Finding the best initialisation meassured by BIC
     best_idx = np.argmin(BIC_tmp)
+    
+    #saving the best models parameters
+    models_tmp[best_idx].save_params('Model Parameters/' + str(nodes_list[node])+ '.weights.h5')
+    
     return BIC_tmp[best_idx], nodes_list[node]
+
+
 
 
 
@@ -79,13 +92,13 @@ def multiprocessing_model():
     
     storage=dict()
     # Create a pool of worker processes
-    with Pool() as pool:
+    with Pool(58) as pool:
         # Distribute the work across processes
         results = pool.imap_unordered(model, range(len(nodes_list)))  # Non-blocking iterator
         
         # Iterate over the results to ensure execution
-        for bic, node in results:
-            storage[node]=bic  
+        for bic, node in tqdm(results, total=len(nodes_list), desc="Processing nodes", unit="node"):
+            storage[node] = bic
     
     end_t = time.perf_counter()
     print(f"Finished in {end_t - start_t:.2f} seconds")
@@ -93,13 +106,18 @@ def multiprocessing_model():
     return storage
 
 
-# Call the multiprocessing function
-results=multiprocessing_model()
-
-#save the results to a file for later use
-np.save('results.npy', results)  # Save the results to a file
 
 
+def main(): 
+    
+    results = multiprocessing_model()
+    
+    np.save('results.npy', results) 
+    
+    return results
+    
+
+main()
 
 
 

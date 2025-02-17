@@ -5,3 +5,10 @@
 *.nc
 DataGeneration/Data/national-identifier-grid/
 *.png
+slurm.py
+results.npy
+plot.py
+requirements.txt
+*.ipynb
+.vscode/
+__pycache__/
