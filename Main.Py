@@ -12,20 +12,20 @@ import warnings
 from tqdm import tqdm
 
 
-nodes_list = [(2,), (4,), (8,), (16,), (32,), (2,2,), (4,2,), (4,4,), (8,2,), (8,4,), (8,8,), (16,2,), (16,4,), (16,8,),
-              (16,16,), (32,2,), (32,4,), (32,8,), (32,16,), (32,32,), (2,2,2,), (4,2,2,), (4,4,2,), (4,4,4,), (8,2,2,),
-              (8,4,2,), (8,4,4,), (8,8,2), (8,8,4), (8,8,8,), (16,2,2,), (16,4,2,), (16,4,4,), (16,8,2,), (16,8,4,),
-              (16,8,8,), (16,16,2,), (16,16,4,), (16,16,8,), (16,16,16,), (32,2,2,), (32,4,2,), (32,4,4,), (32,8,2,),
-              (32,8,4,), (32,8,8,), (32,16,2,), (32,16,4,), (32,16,8,), (32,16,16,), (32,32,2,), (32,32,4,), (32,32,8,),
-              (32,32,16,), (32,32,32,)]
+# nodes_list = [(2,), (4,), (8,), (16,), (32,), (2,2,), (4,2,), (4,4,), (8,2,), (8,4,), (8,8,), (16,2,), (16,4,), (16,8,),
+#               (16,16,), (32,2,), (32,4,), (32,8,), (32,16,), (32,32,), (2,2,2,), (4,2,2,), (4,4,2,), (4,4,4,), (8,2,2,),
+#               (8,4,2,), (8,4,4,), (8,8,2), (8,8,4), (8,8,8,), (16,2,2,), (16,4,2,), (16,4,4,), (16,8,2,), (16,8,4,),
+#               (16,8,8,), (16,16,2,), (16,16,4,), (16,16,8,), (16,16,16,), (32,2,2,), (32,4,2,), (32,4,4,), (32,8,2,),
+#               (32,8,4,), (32,8,8,), (32,16,2,), (32,16,4,), (32,16,8,), (32,16,16,), (32,32,2,), (32,32,4,), (32,32,8,),
+#               (32,32,16,), (32,32,32,)]
 
+nodes_list =[(2,)]
 
-
-no_inits = 25                    # number of different initializations
+no_inits = 1                    # number of different initializations
 seed_value = 0                                                
 lr = 0.001                        # initial learning rate for the Adam optimizer
-min_delta = 1e-6                  # tolerance to be used for optimization
-patience = 100                    # patience to be used for optimization
+min_delta = 1e-2                  # tolerance to be used for optimization
+patience = 10                    # patience to be used for optimization
 verbose = 0                   # verbosity mode for optimization
 
 
@@ -38,7 +38,6 @@ def setup():
     growth, precip, temp = Prepare(data)
 
     return growth, precip, temp
-
 
 
 def model(node):
@@ -54,20 +53,22 @@ def model(node):
     seed_value_tmp = seed_value
     
     for j in range(no_inits):
-        seed_value_tmp = seed_value_tmp + 1  # Ensure each process uses a different seed
+        seed_value_tmp =  seed_value_tmp + 1  # Ensure each process uses a different seed
         
         tf.keras.backend.clear_session()  # Clear previous models and sessions
         tf.random.set_seed(seed_value_tmp)
         np.random.default_rng(seed_value_tmp)
         random.seed(seed_value_tmp)
 
-        models_tmp[j] = Model(nodes=nodes_list[node], x_train=temp, y_train=growth, formulation='Global')
+        models_tmp[j] = Model(nodes=nodes_list[0], x_train=[temp, precip], y_train=growth, formulation='Global')
 
         models_tmp[j].fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
 
         models_tmp[j].in_sample_predictions()
         BIC_tmp[j] = models_tmp[j].BIC
         R2_tmp[j] = models_tmp[j].R2['global'] 
+        
+        print(f"Process {os.getpid()} finished working on node {nodes_list[node]}. \n")
         
         
     #saving BIC for all initializations
@@ -81,43 +82,44 @@ def model(node):
     
     return BIC_tmp[best_idx], nodes_list[node]
 
+for node in enumerate(nodes_list):
+    model(node[0])
 
 
 
 
-
-# Multiprocessing function
-def multiprocessing_model():
-    start_t = time.perf_counter()
+# # Multiprocessing function
+# def multiprocessing_model():
+#     start_t = time.perf_counter()
     
-    storage=dict()
-    # Create a pool of worker processes
-    with Pool(58) as pool:
-        # Distribute the work across processes
-        results = pool.imap_unordered(model, range(len(nodes_list)))  # Non-blocking iterator
+#     storage=dict()
+#     # Create a pool of worker processes
+#     with Pool(58) as pool:
+#         # Distribute the work across processes
+#         results = pool.imap_unordered(model, range(len(nodes_list)))  # Non-blocking iterator
         
-        # Iterate over the results to ensure execution
-        for bic, node in tqdm(results, total=len(nodes_list), desc="Processing nodes", unit="node"):
-            storage[node] = bic
+#         # Iterate over the results to ensure execution
+#         for bic, node in tqdm(results, total=len(nodes_list), desc="Processing nodes", unit="node"):
+#             storage[node] = bic
     
-    end_t = time.perf_counter()
-    print(f"Finished in {end_t - start_t:.2f} seconds")
+#     end_t = time.perf_counter()
+#     print(f"Finished in {end_t - start_t:.2f} seconds")
     
-    return storage
+#     return storage
 
 
 
 
-def main(): 
+# def main(): 
     
-    results = multiprocessing_model()
+#     results = multiprocessing_model()
     
-    np.save('results.npy', results) 
+#     np.save('results.npy', results) 
     
-    return results
+#     return results
     
 
-main()
+# main()
 
 
 

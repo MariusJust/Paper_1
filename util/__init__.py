@@ -1,4 +1,3 @@
-from .dummies import Dummies
 from .loss import individual_loss
 from .extend import Extend
 from .vectorize import Vectorize
