@@ -1,6 +1,4 @@
 
-from util import Prepare
-from Static import static_model as Model
 from multiprocessing import Pool
 import time
 import os
@@ -10,8 +8,19 @@ import tensorflow as tf
 import random
 import warnings
 from tqdm import tqdm
+from Static.ModelFunctions_global import prepare
 
+specification='Multivariate'
 
+#choose whether it is univariate or multivariate
+
+if specification=='univariate':
+    from Static import univariate_model as Model
+    
+else: 
+    from Static import multivariate_model as Model
+    
+     
 # nodes_list = [(2,), (4,), (8,), (16,), (32,), (2,2,), (4,2,), (4,4,), (8,2,), (8,4,), (8,8,), (16,2,), (16,4,), (16,8,),
 #               (16,16,), (32,2,), (32,4,), (32,8,), (32,16,), (32,32,), (2,2,2,), (4,2,2,), (4,4,2,), (4,4,4,), (8,2,2,),
 #               (8,4,2,), (8,4,4,), (8,8,2), (8,8,4), (8,8,8,), (16,2,2,), (16,4,2,), (16,4,4,), (16,8,2,), (16,8,4,),
@@ -26,7 +35,7 @@ seed_value = 0
 lr = 0.001                        # initial learning rate for the Adam optimizer
 min_delta = 1e-2                  # tolerance to be used for optimization
 patience = 10                    # patience to be used for optimization
-verbose = 0                   # verbosity mode for optimization
+verbose = 2                   # verbosity mode for optimization
 
 
 def setup():
@@ -35,7 +44,7 @@ def setup():
     warnings.filterwarnings("ignore")
     data=pd.read_excel('data/MainData.xlsx')
 
-    growth, precip, temp = Prepare(data)
+    growth, precip, temp = prepare.Prepare(data)
 
     return growth, precip, temp
 
@@ -44,6 +53,12 @@ def model(node):
 
     
     growth, precip, temp = setup()
+    
+    if specification=='Univariate':
+         x_train=temp
+    else:
+         x_train=[temp, precip]
+        
     
     print(f"Process {os.getpid()} started working on node {nodes_list[node]}. \n")
     
@@ -60,14 +75,13 @@ def model(node):
         np.random.default_rng(seed_value_tmp)
         random.seed(seed_value_tmp)
 
-        models_tmp[j] = Model(nodes=nodes_list[0], x_train=[temp, precip], y_train=growth, formulation='Global')
+        models_tmp[j] = Model(nodes=nodes_list[0], x_train=x_train, y_train=growth, formulation='Global')
 
         models_tmp[j].fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
 
         models_tmp[j].in_sample_predictions()
         BIC_tmp[j] = models_tmp[j].BIC
-        R2_tmp[j] = models_tmp[j].R2['global'] 
-        
+       
         print(f"Process {os.getpid()} finished working on node {nodes_list[node]}. \n")
         
         
@@ -87,8 +101,7 @@ for node in enumerate(nodes_list):
 
 
 
-
-# # Multiprocessing function
+# # Multiprocesssing function
 # def multiprocessing_model():
 #     start_t = time.perf_counter()
     

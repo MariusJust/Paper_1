@@ -16,6 +16,7 @@ class Vectorize(Layer):
     def call(self, x):
         where_mat = tf.math.is_nan(x)
 
+            #this could be an issue
         y = tf.reshape(x[~where_mat], (1, -1, 1))
 
         self.dim1 = tf.shape(y)[1]

@@ -1,10 +1,11 @@
 import numpy as np
 import tensorflow as tf
 import pandas as pd 
-from util import individual_loss, Extend, Vectorize, Matrixize
-from .ModelFunctions import initialize_parameters, Preprocess, Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, setup_prediction_model
+from .ModelFunctions_global import Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, Matrixize, individual_loss
+from .ModelFunctions_Multivariate import initialize_parameters, Preprocess, Vectorize, setup_prediction_model
 
-from tensorflow.keras.layers import Input, Dense, Add
+
+from tensorflow.keras.layers import Input, Add, concatenate
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.initializers import he_normal, Zeros
@@ -15,7 +16,7 @@ import matplotlib.pyplot as plt
 
 
 
-class static_model:
+class multivariate_model:
     """
     Class implementing the static neural network model.
     """
@@ -52,32 +53,31 @@ class static_model:
     def _model_definition(self):
         
         #note we have 2 observations for each country, one for precipitation and one for temperature, therefore the input is of dimension (T, N, 2)
-        input_x = Input(shape=(self.T, int(self.N['global']), 2)) 
-        
-        
-        
-        # creating an input tensor of dimension (1, T, N, 2), where the first dimension is the batch size, the second dimension is the time period, the third dimension is the country, and the fourth dimension is the variable (precipitation or temperature)
-        temp_tensor=tf.transpose(tf.reshape(tf.convert_to_tensor(self.x_train_transf['global']) , (63, 2, 196)), perm=[0, 2, 1])
-        self.inputs = tf.expand_dims(temp_tensor, axis=0)
-        
+        input_x = Input(shape=(self.T, int(self.N['global']*2)))
+       
+        self.inputs = tf.reshape(tf.convert_to_tensor(self.x_train_transf['global']), (1, self.T, self.N['global']*2))
         #creates a target tensor of dimension (1, T, N) where the first dimension is the batch size, the second dimension is the time period, and the third dimension is the country. variable is the growth rate
         self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T, self.N['global']))
-        #creates a mask with dimension (1, T, N) where the mask is set to true if the data is missing
-        temp_mask = tf.transpose(tf.reshape(tf.convert_to_tensor(self.mask['global']) , (63, 2, 196)), perm=[0, 2, 1])
-        self.Mask =  tf.expand_dims(temp_mask, axis=0)
+        
+        self.Mask = tf.reshape(
+        tf.convert_to_tensor(self.mask['global'][:, :self.N['global']]),
+                            (1, self.T, self.N['global']) )
+                                                        
 
+        
+        
         # Creating dummies
         Delta1, Delta2 = Create_dummies(self, input_x)
         
         # Creating fixed effects
         country_FE, time_FE = create_fixed_effects(self, Delta1, Delta2)
-        
-    
-            
-        # Creating the forward pass
-    
-        input_first = Vectorize()(input_x)
 
+               
+        # Vectorize the inputs
+        temp_input, precip_input= Vectorize(N=self.N['global'])(input_x)
+        
+        input_first= concatenate([temp_input, precip_input], axis=2)
+                
         # First hidden layer
         self.hidden_1 = create_hidden_layer(self, self.nodes[0])
         hidden_1 = self.hidden_1(input_first)
@@ -116,7 +116,7 @@ class static_model:
         self.m = Count_params(self)
 
         #setting up the prediction model
-        input_x_pred = Input(shape=(1, None, 1))
+        input_x_pred = Input(shape=(1, None, 2))
         self.model_pred=setup_prediction_model(self, input_x_pred)
         
 
@@ -151,10 +151,10 @@ class static_model:
         # Saving fixed effects estimates
 
         self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
-        self.alpha.columns = self.individuals['global'][1:]
+        self.alpha.columns = self.individuals['global'][1:196]
 
         self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
-        self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:], inplace=True)
+        self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:196], inplace=True)
 
     def load_params(self, filepath):
         """
@@ -247,4 +247,4 @@ class static_model:
         pred_df = pd.DataFrame(pred_np)
         pred_df.set_index(np.reshape(x_test, (-1,)), inplace=True)
 
-        return pred_df
+        return

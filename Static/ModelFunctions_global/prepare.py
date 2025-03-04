@@ -1,6 +1,5 @@
 def Prepare(data):
-
-    #the growth data should contain the following columns: year, county, and GrowthWDI
+       #the growth data should contain the following columns: year, county, and GrowthWDI
     growth=data[['CountryCode', 'RegionCode', 'Year', 'GrowthWDI']]
 
     #precipitation data
@@ -43,3 +42,5 @@ def Prepare(data):
             region_dict[region] = pivot_data
 
     return growth_dict, precip_dict, temp_dict
+    
+

@@ -107,4 +107,5 @@ def finalize_global(self):
         self.Max['global'] = np.nanmax(self.x_train_np['global'])
         self.x_train_transf['global'] = np.array(self.x_train_transf['global'])
         self.y_train_transf['global'] = np.array(self.y_train_transf['global'])
+        
         self.mask['global'] = np.isnan(self.x_train_transf['global'])
