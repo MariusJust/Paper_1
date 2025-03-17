@@ -1,4 +1,4 @@
-from .visualise import Visualise
+from ..visualise import Visualise
 
 
 

@@ -231,6 +231,7 @@ class univariate_model:
             * pred_df: Dataframe containing predictions.
         """
         
+        model.x_train
         x_test_tf = tf.convert_to_tensor(x_test)
         
         pred_np = np.reshape(self.model_pred.predict(x_test_tf), (-1, 1), order='F')

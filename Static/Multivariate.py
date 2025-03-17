@@ -21,7 +21,7 @@ class multivariate_model:
     Class implementing the static neural network model.
     """
 
-    def __init__(self, nodes, x_train, y_train, formulation):
+    def __init__(self, nodes, x_train, y_train):
         """
         Instantiating class.
 
@@ -38,8 +38,7 @@ class multivariate_model:
         self.Depth = len(self.nodes)
         self.x_train = x_train
         self.y_train = y_train
-        self.formulation = formulation
-
+        
         # Initializing parameters
         initialize_parameters(self)
         
@@ -53,28 +52,31 @@ class multivariate_model:
     def _model_definition(self):
         
         #note we have 2 observations for each country, one for precipitation and one for temperature, therefore the input is of dimension (T, N, 2)
-        input_x = Input(shape=(self.T, int(self.N['global']*2)))
-       
-        self.inputs = tf.reshape(tf.convert_to_tensor(self.x_train_transf['global']), (1, self.T, self.N['global']*2))
+        
+        input_precip =Input(shape=(self.T, int(self.N['global'])))
+        input_temp = Input(shape=(self.T, int(self.N['global'])))
+        
+        self.inputs_temp = tf.reshape(tf.convert_to_tensor(self.x_train_transf_temp['global']), (1, self.T, self.N['global']))
+        self.inputs_precip=tf.reshape(tf.convert_to_tensor(self.x_train_transf_precip['global']), (1, self.T, self.N['global']))
         #creates a target tensor of dimension (1, T, N) where the first dimension is the batch size, the second dimension is the time period, and the third dimension is the country. variable is the growth rate
         self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T, self.N['global']))
         
         self.Mask = tf.reshape(
-        tf.convert_to_tensor(self.mask['global'][:, :self.N['global']]),
+        tf.convert_to_tensor(self.mask['global']),
                             (1, self.T, self.N['global']) )
                                                         
-
-        
         
         # Creating dummies
-        Delta1, Delta2 = Create_dummies(self, input_x)
+        Delta1, Delta2 = Create_dummies(self, input_precip)
         
         # Creating fixed effects
         country_FE, time_FE = create_fixed_effects(self, Delta1, Delta2)
 
-               
+
         # Vectorize the inputs
-        temp_input, precip_input= Vectorize(N=self.N['global'])(input_x)
+        temp_input=Vectorize(self.N, 'temp')(input_temp)
+        
+        precip_input= Vectorize(self.N, 'precip')(input_precip)
         
         input_first= concatenate([temp_input, precip_input], axis=2)
                 
@@ -108,7 +110,7 @@ class multivariate_model:
         output_matrix = Matrixize(N=self.N['global'], T=self.T, noObs=self.noObs['global'], mask=self.Mask)(output)
 
         # Compiling the model
-        self.model = Model(inputs=input_x, outputs=output_matrix)
+        self.model = Model(inputs=[input_temp, input_precip], outputs=output_matrix)
         
         
         # Counting number of parameters
@@ -119,9 +121,6 @@ class multivariate_model:
         input_x_pred = Input(shape=(1, None, 2))
         self.model_pred=setup_prediction_model(self, input_x_pred)
         
-
-
-
 
     def fit(self, lr, min_delta, patience, verbose):
         """
@@ -140,7 +139,7 @@ class multivariate_model:
                                    restore_best_weights=True, verbose=verbose)]
    
         
-        self.model.fit(self.inputs, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
+        self.model.fit([self.inputs_temp, self.inputs_precip], self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
         
         self.losses = self.model.history.history
        
@@ -168,10 +167,10 @@ class multivariate_model:
         self.params = self.model.get_weights()
 
         self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
-        self.alpha.columns = self.individuals['global'][1:]
+        self.alpha.columns = self.individuals['global'][1:self.N['global']]
 
         self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
-        self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:], inplace=True)
+        self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:self.N['global']], inplace=True)
 
     def save_params(self, filepath):
         """
@@ -190,29 +189,29 @@ class multivariate_model:
 
         """
 
-        in_sample_preds = self.model(self.inputs)
+        # Generate in-sample predictions using the model
+        in_sample_preds = self.model([self.inputs_temp, self.inputs_precip])
+
+        # Initialize aggregation variable
         N_agg = 0
-        
-        for region in self.regions:
-            #copying the structure of the observed data 
-            self.in_sample_pred[region] =  self.y_train[region].copy()
-            #replacing the just copied data (via the iloc function) with the in-sample predictions
-            self.in_sample_pred[region].iloc[:, :] = np.array(in_sample_preds[0, :, N_agg:N_agg+self.N[region]])
-            
-            #updates the total count of countries
-            N_agg = N_agg + self.N[region]
-            
-            pred_vector = np.reshape(np.array(self.in_sample_pred[region]), (-1))
-            train_vector = np.reshape(np.array(self.y_train_df[region]), (-1))
 
-            if self.regions.index(region) == 0:
-                in_sample_pred_global = pred_vector
-                in_sample_global = train_vector
-            else:
-                in_sample_pred_global = np.concatenate([in_sample_pred_global, pred_vector], axis=0)
-                in_sample_global = np.concatenate([in_sample_global, train_vector], axis=0)
+        # Copy the structure of the observed global data
+        self.in_sample_pred['global'] = self.y_train['global'].copy()
 
-        
+        # Replace the copied data with the in-sample predictions
+        self.in_sample_pred['global'].iloc[:, :] = np.array(in_sample_preds[0, :, 0:self.N['global']])
+
+        # Flatten the prediction and training data to vectors
+        pred_vector = np.reshape(np.array(self.in_sample_pred['global']), (-1))
+        train_vector = np.reshape(np.array(self.y_train_df['global']), (-1))
+
+        # Store the global predictions and actuals for comparison
+        in_sample_pred_global = pred_vector
+        in_sample_global = train_vector
+
+            
+            
+    
         mean_growth = np.nanmean(np.reshape(np.array(in_sample_global), (-1)))
         
         SST = np.nansum((in_sample_global- mean_growth) ** 2)
@@ -227,7 +226,7 @@ class multivariate_model:
 
 
         
-    def predict(self, x_test, idx=False):
+    def predict(self, temperature_array, precip_array, idx=False):
         """
         Making predictions.
 
@@ -240,11 +239,8 @@ class multivariate_model:
             * pred_df: Dataframe containing predictions.
         """
         
-        x_test_tf = tf.convert_to_tensor(x_test)
-        
-        pred_np = np.reshape(self.model_pred.predict(x_test_tf), (-1, 1), order='F')
+        pred_vector=tf.concat([temperature_array, precip_array], axis=3)
 
-        pred_df = pd.DataFrame(pred_np)
-        pred_df.set_index(np.reshape(x_test, (-1,)), inplace=True)
+        predictions=self.model_pred.predict(pred_vector)
 
-        return
+        return predictions

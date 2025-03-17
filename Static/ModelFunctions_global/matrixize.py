@@ -33,7 +33,7 @@ class Matrixize(Layer):
         indices = tf.cast(tf.where(~where), tf.int32)
 
         # Create x_nan and check its shape
-        x_nan = tf.ones((self.N * self.T - self.noObs)/2) * np.nan
+        x_nan = tf.ones((self.N * self.T - self.noObs)) * np.nan
        
         # Scatter the NaN values
         scatter_nan = tf.scatter_nd(indices, x_nan, shape=tf.shape(self.mask))
