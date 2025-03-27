@@ -9,6 +9,7 @@ import warnings
 from tqdm import tqdm
 from Static.ModelFunctions_global import prepare
 
+warnings.filterwarnings("ignore")
 
 specification='Multivariate'
 
@@ -29,18 +30,18 @@ nodes_list = [(2,), (4,), (8,), (16,), (32,), (2,2,), (4,2,), (4,4,), (8,2,), (8
               (32,32,16,), (32,32,32,)]
 
 
-no_inits = 20                    # number of different initializations
+no_inits = 20                  # number of different initializations
 seed_value = 0                                                
 lr = 0.001                        # initial learning rate for the Adam optimizer
 min_delta = 1e-6                  # tolerance to be used for optimization
-patience = 100                    # patience to be used for optimization
-verbose = 2                   # verbosity mode for optimization
+patience = 50                    # patience to be used for optimization
+verbose = 0                   # verbosity mode for optimization
 
 
 def setup():
     # Importing libraries
 
-    warnings.filterwarnings("ignore")
+    
     data=pd.read_excel('data/MainData.xlsx')
 
     growth, precip, temp = prepare.Prepare(data)
@@ -57,13 +58,12 @@ def model(node):
     else:
          x_train=[temp, precip]
         
-        
-    print(f"Process {os.getpid()} started working on node {nodes_list[node]}. \n")
     
     models_tmp = [None] * no_inits
     BIC_tmp = [None] * no_inits
-    R2_tmp = [None] * no_inits
+    AIC_tmp = [None] * no_inits
     seed_value_tmp = seed_value
+    
     
     for j in range(no_inits):
         seed_value_tmp =  seed_value_tmp + 1  # Ensure each process uses a different seed
@@ -79,23 +79,29 @@ def model(node):
   
         models_tmp[j].in_sample_predictions()
         BIC_tmp[j] = models_tmp[j].BIC
-        
-        print(f"Process {os.getpid()} finished working on node {nodes_list[node]}. \n")
-        
-        
+        AIC_tmp[j] = models_tmp[j].AIC
+      
+        print(f"Process {os.getpid()} completed initialization {j+1}/{no_inits} for node {nodes_list[node]}", flush=True)
+
+          
     #saving BIC for all initializations
-    np.save('BIC/' + str(nodes_list[node]) + '.npy' , BIC_tmp)
+    np.save('Model Selection/BIC/' + str(nodes_list[node]) + '.npy' , BIC_tmp)
+    np.save('Model Selection/AIC/' + str(nodes_list[node]) + '.npy' , AIC_tmp)
     
     #Finding the best initialisation meassured by BIC
-    best_idx = np.argmin(BIC_tmp)
+    best_idx_BIC = np.argmin(BIC_tmp)
+    best_idx_AIC= np.argmin(AIC_tmp)
     
     #saving the best models parameters
-    models_tmp[best_idx].save_params('Model Parameters/' + str(nodes_list[node])+ '.weights.h5')
+    models_tmp[best_idx_BIC].save_params('Model Parameters/BIC/' + str(nodes_list[node])+ '.weights.h5')
+    models_tmp[best_idx_AIC].save_params('Model Parameters/AIC/' + str(nodes_list[node])+ '.weights.h5')
     
-    return BIC_tmp[best_idx], nodes_list[node]
+    return BIC_tmp[best_idx_BIC], AIC_tmp[best_idx_AIC], nodes_list[node]
 
 
-        
+
+
+
 # Multiprocesssing function
 def multiprocessing_model():
 
@@ -106,8 +112,8 @@ def multiprocessing_model():
         results = pool.imap_unordered(model, range(len(nodes_list)))  # Non-blocking iterator
         
         # Iterate over the results to ensure execution
-        for bic,  node in tqdm(results, total=len(nodes_list), desc="Processing nodes", unit="node"):
-            storage[node] = bic
+        for bic, aic, node in tqdm(results, total=len(nodes_list), desc="Processing nodes", unit="node"):
+            storage[node] = [bic, aic]
      
     return storage
 
@@ -118,15 +124,11 @@ def main():
     
     results = multiprocessing_model()
     
-    np.save('results.npy', results) 
+    np.save('results/results.npy', results) 
     
     return results
     
 
 main()
-
-
-
-
 
 

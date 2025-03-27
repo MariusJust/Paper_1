@@ -67,7 +67,7 @@ class multivariate_model:
                                                         
         
         # Creating dummies
-        Delta1, Delta2 = Create_dummies(self, input_precip)
+        Delta1, Delta2 = Create_dummies(self, input_temp)
         
         # Creating fixed effects
         country_FE, time_FE = create_fixed_effects(self, Delta1, Delta2)
@@ -221,7 +221,9 @@ class multivariate_model:
         self.R2['global'] = SSR / SST
         self.MSE['global'] = SSE / self.noObs['global']
 
-        self.BIC = np.log(SSE) - np.log(self.noObs['global']) + self.m * np.log(self.noObs['global']) / self.noObs['global']
+        self.BIC = (np.log(SSE/self.noObs['global']))*self.noObs['global'] + self.m * np.log(self.noObs['global']) 
+        self.AIC= (np.log(SSE/self.noObs['global']))*self.noObs['global'] + 2 * self.m
+        
         return in_sample_preds
 
 

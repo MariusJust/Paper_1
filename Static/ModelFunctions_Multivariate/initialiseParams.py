@@ -28,6 +28,8 @@ def initialize_parameters(self):
         self.epochs = None
         self.params = None
         self.BIC = None
+        self.AIC = None
+        
 
         self.model_pred = None
 

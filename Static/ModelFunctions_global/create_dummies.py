@@ -25,7 +25,6 @@ class Dummies(Layer):
         where_mat = tf.transpose(tf.math.is_nan(x))
 
         for t in range(self.T):
-            # print(where_mat[:, t, 0].np())
             idx = tf.where(~where_mat[:, t, 0])
             idx = tf.reshape(idx, (-1,))
 
@@ -51,7 +50,7 @@ class Dummies(Layer):
 
         Delta_1 = Delta_1[:, 1:]
         Delta_2 = Delta_2[:, self.time_periods_na + 1:]
-
+        
         self.noObs = tf.shape(Delta_1)[0]
         
         Delta_1 = tf.reshape(Delta_1, (1, self.noObs, self.N - 1))
