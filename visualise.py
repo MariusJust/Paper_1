@@ -1,7 +1,7 @@
 
 import numpy as np
 import tensorflow as tf
-from Static.ModelFunctions_global import Prepare
+from Model.ModelFunctions_global import Prepare
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # needed for 3D plots in Matplotlib
@@ -11,7 +11,7 @@ import os
 
 os.environ['PYTHONHASHSEED'] = str(0)
 
-from Static import multivariate_model as Model
+from Model import multivariate_model as Model
 
                                   
 lr = 0.001                        # initial learning rate for the Adam optimizer

@@ -1,4 +1,3 @@
-
 from multiprocessing import Pool
 import os
 import pandas as pd
@@ -7,20 +6,11 @@ import tensorflow as tf
 import random
 import warnings
 from tqdm import tqdm
-from Static.ModelFunctions_global import prepare
+from Model.ModelFunctions import prepare
+from Model import multivariate_model as Model
 
 warnings.filterwarnings("ignore")
-
-specification='Multivariate'
-
-#choose whether it is univariate or multivariate
-
-if specification=='univariate':
-    from Static import univariate_model as Model
-    
-else: 
-    from Static import multivariate_model as Model
-    
+os.environ['PYTHONHASHSEED'] = str(0)
      
 nodes_list = [(2,), (4,), (8,), (16,), (32,), (2,2,), (4,2,), (4,4,), (8,2,), (8,4,), (8,8,), (16,2,), (16,4,), (16,8,),
               (16,16,), (32,2,), (32,4,), (32,8,), (32,16,), (32,32,), (2,2,2,), (4,2,2,), (4,4,2,), (4,4,4,), (8,2,2,),
@@ -30,18 +20,16 @@ nodes_list = [(2,), (4,), (8,), (16,), (32,), (2,2,), (4,2,), (4,4,), (8,2,), (8
               (32,32,16,), (32,32,32,)]
 
 
-no_inits = 20                  # number of different initializations
+no_inits = 25                  # number of different initializations
 seed_value = 0                                                
 lr = 0.001                        # initial learning rate for the Adam optimizer
 min_delta = 1e-6                  # tolerance to be used for optimization
-patience = 50                    # patience to be used for optimization
+patience = 100                    # patience to be used for optimization
 verbose = 0                   # verbosity mode for optimization
 
 
 def setup():
     # Importing libraries
-
-    
     data=pd.read_excel('data/MainData.xlsx')
 
     growth, precip, temp = prepare.Prepare(data)
@@ -53,18 +41,14 @@ def model(node):
     
     growth, precip, temp = setup()
     
-    if specification=='Univariate':
-         x_train=temp
-    else:
-         x_train=[temp, precip]
-        
+    x_train=[temp, precip]
     
     models_tmp = [None] * no_inits
     BIC_tmp = [None] * no_inits
     AIC_tmp = [None] * no_inits
     seed_value_tmp = seed_value
     
-    
+    print(f"Process {os.getpid()} started initialization for node {nodes_list[node]}", flush=True)
     for j in range(no_inits):
         seed_value_tmp =  seed_value_tmp + 1  # Ensure each process uses a different seed
         

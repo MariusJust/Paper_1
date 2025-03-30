@@ -60,11 +60,9 @@ def Prepare(data):
         pivot_data = var.pivot(index='Year', columns='CountryCode', values=var.columns[-1])
   
         mean = np.nanmean(pivot_data.values)
-        #calculate the 25% and 75% quantiles
-        q25, q50, q75 = np.nanpercentile(pivot_data.values, [25,50, 75])
        
         std = np.nanstd(pivot_data.values)
-        print(q25, mean, q75, std)
+        
         standardised_data = (pivot_data - mean) / std
         dict['global'] = standardised_data
         # dict['global'] = pivot_data
