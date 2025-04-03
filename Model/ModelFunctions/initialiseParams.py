@@ -29,6 +29,7 @@ def initialize_parameters(self):
         self.params = None
         self.BIC = None
         self.AIC = None
+        self.country_FE= None
         
 
         self.model_pred = None

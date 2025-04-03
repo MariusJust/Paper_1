@@ -2,17 +2,16 @@ import numpy as np
 import tensorflow as tf
 import pandas as pd 
 
-from .ModelFunctions import initialize_parameters, Preprocess, Vectorize, setup_prediction_model, Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, Matrixize, individual_loss
+from .ModelFunctions import initialize_parameters, Preprocess, Vectorize, setup_prediction_model, Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, Matrixize, individual_loss, create_Dropout
 
 from tensorflow.keras.layers import Input, Add, concatenate
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.initializers import he_normal, Zeros
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 from tensorflow.python.keras.backend import count_params
-import matplotlib.pyplot as plt
-
+import datetime
+import os
 
 
 class multivariate_model:
@@ -82,16 +81,19 @@ class multivariate_model:
         # First hidden layer
         self.hidden_1 = create_hidden_layer(self, self.nodes[0])
         hidden_1 = self.hidden_1(input_first)
+        
+        hidden_1=create_Dropout(self, hidden_1)
 
         # Handle depth and subsequent layers
         if self.Depth > 1:
             self.hidden_2 = create_hidden_layer(self, self.nodes[1])
             hidden_2 = self.hidden_2(hidden_1)
-            
+            hidden_2=create_Dropout(self, hidden_2)
             if self.Depth > 2:
                 
                 self.hidden_3 = create_hidden_layer(self, self.nodes[2])
                 hidden_3 = self.hidden_3(hidden_2)
+                hidden_3=create_Dropout(self, hidden_3)
                 input_last =  hidden_3
             else:
                 input_last =  hidden_2
@@ -111,6 +113,7 @@ class multivariate_model:
         # Compiling the model
         self.model = Model(inputs=[input_temp, input_precip], outputs=output_matrix)
         
+        self.country_FE=country_FE
         
         # Counting number of parameters
         
@@ -121,7 +124,7 @@ class multivariate_model:
         self.model_pred=setup_prediction_model(self, input_x_pred)
         
 
-    def fit(self, lr, min_delta, patience, verbose):
+    def fit(self, lr, min_delta, patience, verbose, log_dir):
         """
         Fitting the model.
 
@@ -131,11 +134,14 @@ class multivariate_model:
             * patience:      patience to be used for optimization.
             * verbose:       verbosity mode for optimization.
         """
+        model_log_dir = os.path.join(log_dir, f"model_{self.nodes}") 
+        tensorboard_callback = TensorBoard(log_dir=model_log_dir, histogram_freq=1, write_graph=True, write_images=True)
 
         self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask))
 
         callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
-                                   restore_best_weights=True, verbose=verbose)]
+                                   restore_best_weights=True, verbose=verbose),
+                     tensorboard_callback]
    
         
         self.model.fit([self.inputs_temp, self.inputs_precip], self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
@@ -153,6 +159,8 @@ class multivariate_model:
 
         self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
         self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:196], inplace=True)
+        
+        print(f"TensorBoard logs saved in: {log_dir}")
 
     def load_params(self, filepath):
         """

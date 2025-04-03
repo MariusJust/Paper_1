@@ -1,4 +1,5 @@
 from tensorflow.keras import Model
+from .create_layers import create_Dropout
 
 def setup_prediction_model(self, input_x_pred):
     """
@@ -12,12 +13,16 @@ def setup_prediction_model(self, input_x_pred):
     """
 
     hidden_1_pred = self.hidden_1(input_x_pred)
+    hidden_1_pred = create_Dropout(self, hidden_1_pred)
+    
 
     if self.Depth > 1:
         hidden_2_pred = self.hidden_2(hidden_1_pred)
+        hidden_2_pred=create_Dropout(self, hidden_2_pred)
 
         if self.Depth > 2:
             hidden_3_pred = self.hidden_3(hidden_2_pred)
+            hidden_3_pred=create_Dropout(self, hidden_3_pred)
             input_last_pred = hidden_3_pred
 
         else:

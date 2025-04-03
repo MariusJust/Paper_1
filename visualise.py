@@ -1,7 +1,7 @@
 
 import numpy as np
 import tensorflow as tf
-from Model.ModelFunctions_global import Prepare
+from Model.ModelFunctions import Prepare
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # needed for 3D plots in Matplotlib
@@ -27,7 +27,7 @@ growth, precip, temp = Prepare(data)
 
 
 
-results=dict(np.load('results/results.npy', allow_pickle=True).item())
+results=dict(np.load('results/03042025/results.npy', allow_pickle=True).item())
 
 #find the best 10 models 
 min_nodes = sorted(results, key=lambda node: results[node][1])[:10]
@@ -70,7 +70,7 @@ pred_vector_lower = tf.concat([temperature_array, lower_precip_array], axis=3)
 model=Model(min_node, x_train=x_train, y_train=growth)
 
 #loadig the best model weights for reproducability
-model.load_params('Model Parameters/BIC/14032025/' +  str(min_node)+'.weights.h5')
+model.load_params('Model Parameters/BIC/03042025/' +  str(min_node)+'.weights.h5')
 
 
 model.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
@@ -87,7 +87,96 @@ model.beta
 
 time_fe_bench=pd.read_csv('data/Benchmark/time_fixed_effects_Burke.csv')
 
+country_fe_bench=pd.read_csv('data/Benchmark/country_fixed_effects_Burke.csv')
 
+#calculate the difference between the model and the benchmark data
+country_fe_diff = np.abs(- )
+
+
+# Plot the comparison
+plt.figure(figsize=(10, 6))
+plt.scatter(model.alpha.values.flatten() , country_fe_bench['x'].values.flatten(), label='Model vs Benchmark', color='blue', alpha=0.7)
+
+# Label each point with the corresponding country name
+# for i, country in enumerate(countries):
+#     plt.text(model_alpha_values[i], benchmark_values[i], country, fontsize=9, ha='right')
+
+# Add a reference line (y = x) for comparison
+plt.plot([-1, 1], [-1, 1], linestyle='--', color='red', label='y = x (Perfect Match)')
+
+# Labels and title
+plt.xlabel('Model Alpha')
+plt.ylabel('Benchmark Fixed Effects')
+plt.title('Comparison of Model Alpha and Benchmark Country Fixed Effects')
+plt.legend()
+plt.grid(True)
+
+# Show the plot
+plt.show()
+
+
+
+country_fe_data = pd.DataFrame({
+        'Country': model.individuals['global'][1:196],
+        'Model': model.alpha.values.flatten(),
+        'Benchmark': country_fe_bench['x'],
+        'diff': abs(model.alpha.values.flatten()-country_fe_bench['x'])
+    })
+
+
+country_fe_data['diff'] 
+
+
+country_fe_data = country_fe_data.sort_values(by='diff', ascending=False)
+
+# Set figure size
+plt.figure(figsize=(14, 6))
+
+# Define x-axis positions
+x = np.arange(len(country_fe_data))
+
+# Bar width
+width = 0.4
+
+# Plot Model values
+plt.bar(x - width/2, country_fe_data['Model'], width=width, color='blue', label='Model Alpha', alpha=0.7)
+
+# Plot Benchmark values
+plt.bar(x + width/2, country_fe_data['Benchmark'], width=width, color='orange', label='Benchmark', alpha=0.7)
+
+# Set labels and title
+plt.xlabel('Country')
+plt.ylabel('Fixed Effects Estimate')
+plt.title('Comparison of Model and Benchmark Fixed Effects by Country')
+
+# Set x-axis tick labels (rotate for readability)
+plt.xticks(x, country_fe_data['Country'], rotation=90, fontsize=8)
+
+# Add legend
+plt.legend()
+
+# Show the plot
+plt.tight_layout()
+plt.show()
+
+countries = model.individuals['global'][1:196]
+
+plt.figure(figsize=(10, 6))
+
+plt.hist(model.alpha.values.flatten(), bins=20, color='blue', edgecolor='black', alpha=0.5, label='Model Alpha')
+plt.hist(country_fe_bench['x'].values.flatten(), bins=20, color='orange', edgecolor='black', alpha=0.5, label='Benchmark')
+
+# Labels and title
+plt.xlabel('Fixed Effects Estimates')
+plt.ylabel('Frequency')
+plt.title('Histogram of Model vs Benchmark Fixed Effects')
+plt.legend()
+
+# Show grid for better readability
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+# Show the plot
+plt.show()
 
 #plot the time fixed effects against the benchmark data 
 time_fe_data = pd.DataFrame({
@@ -202,20 +291,20 @@ plt.show()
 
 ##############################################  plotting 3D  ########################################################
 
-
+log_dir = "logs/fit"
 min_node=(4,)
 
 model=Model(min_node, x_train=x_train, y_train=growth)
 
 #loadig the best model weights for reproducability
-model.load_params('Model Parameters/BIC/14032025/' +  str(min_node)+'.weights.h5')
+model.load_params('Model Parameters/BIC/03042025/' +  str(min_node)+'.weights.h5')
 
 
-model.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
+model.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose, log_dir=log_dir)
 
 model.in_sample_predictions()
 
-
+model.params
 
 # 1. Create your temperature and precipitation ranges
 #    Adjust these ranges as needed to match your data domain.
@@ -259,7 +348,6 @@ fig.update_layout(
         xaxis_title='Temperature (°C)',
         yaxis_title='Precipitation (mm)',
         zaxis_title='Growth',
-        zaxis=dict(range=[-0.35, 0.2]),
         camera=dict(
             eye=dict(x=1.5, y=1.5, z=1.5)  # Adjust the camera angle
         )
@@ -270,7 +358,7 @@ fig.update_layout(
 # Show the plot
 fig.show()
 
-pio.write_html(fig, file='interactive_3d_plot(16,8)_zfixed.html', auto_open=False)
+pio.write_html(fig, file='images/interactive_3d_plot(4,)_dropout.html', auto_open=False)
 
 ##############################################  plotting comparison of 10 best models  ########################################################
 #make a dataframe to store the results
