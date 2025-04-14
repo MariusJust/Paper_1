@@ -1,6 +1,51 @@
 from tensorflow.keras.initializers import he_normal, Zeros
 from tensorflow.keras.layers import Dense, Dropout
 
+def model_with_dropout(self, input_first):
+    
+    self.hidden_1 = create_hidden_layer(self, self.nodes[0])
+    hidden_1 = self.hidden_1(input_first)
+    
+    # Handle depth and subsequent layers
+    if self.Depth > 1:
+        self.hidden_2 = create_hidden_layer(self, self.nodes[1])
+        hidden_2 = self.hidden_2(hidden_1)
+        if self.Depth > 2:
+            
+            self.hidden_3 = create_hidden_layer(self, self.nodes[2])
+            hidden_3 = self.hidden_3(hidden_2)
+            hidden_3=create_Dropout(self, hidden_3)
+            input_last =  hidden_3
+        else:
+            input_last =  hidden_2
+    else:
+        input_last =  hidden_1
+    
+    return input_last
+
+def model_without_dropout(self, input_first):
+    
+    self.hidden_1 = create_hidden_layer(self, self.nodes[0])
+    hidden_1 = self.hidden_1(input_first)
+    
+    # Handle depth and subsequent layers
+    if self.Depth > 1:
+        self.hidden_2 = create_hidden_layer(self, self.nodes[1])
+        hidden_2 = self.hidden_2(hidden_1)
+        if self.Depth > 2:
+            
+            self.hidden_3 = create_hidden_layer(self, self.nodes[2])
+            hidden_3 = self.hidden_3(hidden_2)
+            input_last =  hidden_3
+        else:
+            input_last =  hidden_2
+    else:
+        input_last =  hidden_1
+    
+    return input_last
+
+
+
 def create_hidden_layer(self, node):
     """ Create a hidden layer with the specified input and layer number. """
     kernel_initializer = he_normal()
@@ -19,6 +64,8 @@ def create_output_layer(self, input_tensor):
 
 def create_Dropout(self, layer):
     """ Create a dropout layer with a rate of 0.2. """
-    dropout = Dropout(rate=0.2)
+    dropout = Dropout(rate=self.dropout)
     dropout_layer = dropout(layer)
     return dropout_layer
+
+

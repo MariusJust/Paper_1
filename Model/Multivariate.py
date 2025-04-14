@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import pandas as pd 
 
-from .ModelFunctions import initialize_parameters, Preprocess, Vectorize, setup_prediction_model, Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, Matrixize, individual_loss, create_Dropout
+from .ModelFunctions import initialize_parameters, Preprocess, Vectorize, Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, Matrixize, individual_loss, model_with_dropout, model_without_dropout, prediction_model_with_dropout, prediction_model_without_dropout
 
 from tensorflow.keras.layers import Input, Add, concatenate
 from tensorflow.keras import Model
@@ -10,8 +10,6 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 from tensorflow.python.keras.backend import count_params
-import datetime
-import os
 
 
 class multivariate_model:
@@ -19,7 +17,7 @@ class multivariate_model:
     Class implementing the static neural network model.
     """
 
-    def __init__(self, nodes, x_train, y_train):
+    def __init__(self, nodes, x_train, y_train, dropout):
         """
         Instantiating class.
 
@@ -29,13 +27,14 @@ class multivariate_model:
             * y_train:        dict of TxN_r dataframes of target data (aligned) with a key for each region.
             * formulation:    str determining the formulation of the model. Must be one of 'global' or 'regional' or 'national'.
 
-        NB: regions are inferred from the keys of x_train and y_train.
+        NB: regions are inferred from the    keys of x_train and y_train.
         """
         
         self.nodes = nodes
         self.Depth = len(self.nodes)
         self.x_train = x_train
         self.y_train = y_train
+        self.dropout = dropout
         
         # Initializing parameters
         initialize_parameters(self)
@@ -78,29 +77,12 @@ class multivariate_model:
         
         input_first= concatenate([temp_input, precip_input], axis=2)
                 
-        # First hidden layer
-        self.hidden_1 = create_hidden_layer(self, self.nodes[0])
-        hidden_1 = self.hidden_1(input_first)
-        
-        hidden_1=create_Dropout(self, hidden_1)
-
-        # Handle depth and subsequent layers
-        if self.Depth > 1:
-            self.hidden_2 = create_hidden_layer(self, self.nodes[1])
-            hidden_2 = self.hidden_2(hidden_1)
-            hidden_2=create_Dropout(self, hidden_2)
-            if self.Depth > 2:
-                
-                self.hidden_3 = create_hidden_layer(self, self.nodes[2])
-                hidden_3 = self.hidden_3(hidden_2)
-                hidden_3=create_Dropout(self, hidden_3)
-                input_last =  hidden_3
-            else:
-                input_last =  hidden_2
+        # model, with or without dropout
+        if self.dropout != 0:
+            input_last=model_with_dropout(self, input_first)
         else:
-            input_last =  hidden_1
-
-
+            input_last=model_without_dropout(self, input_first)
+            
         # Creating temporary output layer, without fixed effects
         output_tmp = create_output_layer(self, input_last)
 
@@ -121,10 +103,13 @@ class multivariate_model:
 
         #setting up the prediction model
         input_x_pred = Input(shape=(1, None, 2))
-        self.model_pred=setup_prediction_model(self, input_x_pred)
+        if self.dropout != 0:
+            self.model_pred=prediction_model_with_dropout(self, input_x_pred)
+        else:
+            self.model_pred=prediction_model_without_dropout(self, input_x_pred)
         
 
-    def fit(self, lr, min_delta, patience, verbose, log_dir):
+    def fit(self, lr, min_delta, patience, verbose):
         """
         Fitting the model.
 
@@ -134,14 +119,17 @@ class multivariate_model:
             * patience:      patience to be used for optimization.
             * verbose:       verbosity mode for optimization.
         """
-        model_log_dir = os.path.join(log_dir, f"model_{self.nodes}") 
-        tensorboard_callback = TensorBoard(log_dir=model_log_dir, histogram_freq=1, write_graph=True, write_images=True)
+      
+        tensorboard_callback = TensorBoard(log_dir='logs/fit', histogram_freq=1, write_graph=True, write_images=True)
 
         self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask))
 
+    
+        
         callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
                                    restore_best_weights=True, verbose=verbose),
-                     tensorboard_callback]
+                     tensorboard_callback
+                     ]
    
         
         self.model.fit([self.inputs_temp, self.inputs_precip], self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
@@ -153,14 +141,13 @@ class multivariate_model:
         self.params = self.model.get_weights()
 
         # Saving fixed effects estimates
-
         self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
         self.alpha.columns = self.individuals['global'][1:196]
 
         self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
         self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:196], inplace=True)
         
-        print(f"TensorBoard logs saved in: {log_dir}")
+
 
     def load_params(self, filepath):
         """
