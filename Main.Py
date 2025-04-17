@@ -1,4 +1,4 @@
-from setup import multiprocessing_model
+from utils import multiprocessing_model
 import numpy as np
    
 def main():
@@ -26,10 +26,10 @@ def main():
     dropout = 0.2                   # Dropout rate (0 means no dropout)
     n_process = 55                  # Number of cores to run on
     Model_selection= 'CV'           # Model selection, "IC" for information criteria, "CV" for cross-validation
-    specification = 'global'        # Model specification, "global" or "regional"
+    formulation = 'regional'          # Model formulation, "global" or "regional"
     n_splits = 5                    # Number of splits for cross-validation, if Model_selection = IC, argument is ignored
 
-    results = multiprocessing_model(Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, n_process)
+    results = multiprocessing_model(Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, n_process, formulation)
     np.save('results/results.npy', results)
 
     return results

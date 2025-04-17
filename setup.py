@@ -1,11 +1,9 @@
-from multiprocessing import Pool
 import os
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 import random
 import warnings
-from tqdm import tqdm
 from Model.ModelFunctions import prepare
 from Model import multivariate_model as Model
 from panelsplit.cross_validation import PanelSplit
@@ -20,14 +18,14 @@ os.environ['PYTHONHASHSEED'] = str(0)
 
 
 
-def setup(model_selection, n_splits):
+def load_data(model_selection, n_splits, formulation):
     if model_selection == 'IC':
             data = pd.read_excel('data/MainData.xlsx')
-            growth, precip, temp = prepare.Prepare(data)
+            growth, precip, temp = prepare.Prepare(data, formulation)
             return growth, precip, temp
     elif model_selection == 'CV':
         data = pd.read_excel('data/MainData.xlsx')
-        growth, precip, temp = prepare.Prepare(data)
+        growth, precip, temp = prepare.Prepare(data, formulation)
         
         # Create a PanelSplit object for cross-validation
         growth_global = growth['global'].reset_index()
@@ -54,7 +52,7 @@ def setup(model_selection, n_splits):
 
 
 
-def model(node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits):
+def main_loop(node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, formulation):
    
     # Determine the model and load data accordingly
     if Model_selection == 'CV':

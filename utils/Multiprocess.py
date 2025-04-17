@@ -1,10 +1,13 @@
+from multiprocessing import Pool
+from tqdm import tqdm
+from setup import main_loop as main_loop
 
-def multiprocessing_model(Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, n_process):
+def multiprocessing_model(Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, n_process, formulation):
     storage = {}
 
     # Prepare an iterable of arguments for each node.
     arg_list = [
-        (node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits)
+        (node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, formulation)
         for node_index in range(len(nodes_list))
     ]
 
@@ -25,4 +28,4 @@ def multiprocessing_model(Model_selection, nodes_list, no_inits, seed_value, lr,
 
 def worker(args):
     # Unpack the tuple of arguments and call the model function.
-    return model(*args)
+    return main_loop(*args)
