@@ -120,15 +120,15 @@ class multivariate_model:
             * verbose:       verbosity mode for optimization.
         """
       
-        tensorboard_callback = TensorBoard(log_dir='logs/fit', histogram_freq=1, write_graph=True, write_images=True)
+        # tensorboard_callback = TensorBoard(log_dir='logs/fit', histogram_freq=1, write_graph=True, write_images=True)
 
         self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask))
 
     
         
         callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
-                                   restore_best_weights=True, verbose=verbose),
-                     tensorboard_callback
+                                   restore_best_weights=True, verbose=verbose)
+                    #  ,tensorboard_callback
                      ]
    
         
