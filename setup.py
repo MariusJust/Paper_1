@@ -15,6 +15,11 @@ warnings.filterwarnings("ignore")
 os.environ['PYTHONHASHSEED'] = str(0)
 
 
+
+
+
+
+
 def setup(model_selection, n_splits):
     if model_selection == 'IC':
             data = pd.read_excel('data/MainData.xlsx')
@@ -48,11 +53,8 @@ def setup(model_selection, n_splits):
 
 
 
-#Now I want to search for the best model for each node, by using the cross validation.
-# I have defined 5 splits, so now I want to run  each model configuration 
 
-
-def model(node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits=5):
+def model(node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits):
    
     # Determine the model and load data accordingly
     if Model_selection == 'CV':
@@ -113,8 +115,9 @@ def model(node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min
         # Select best initialization (i.e., the one with the lowest average MSE)
         best_init_idx = int(np.argmin(cv_errors_inits))
         best_cv_error = cv_errors_inits[best_init_idx]
-        # Save the best model's parameters
-        models_tmp[best_init_idx].save_params('Model Parameters/cv/' + str(nodes_list[node_index]) + '.weights.h5')
+        
+        train_on_full_sample(best_init_idx, nodes_list[node_index], growth, precip, temp, lr, min_delta, patience, verbose, dropout)
+
         return best_cv_error, nodes_list[node_index]
     
     # === Information Criteria case ===
@@ -150,32 +153,36 @@ def model(node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min
         return BIC_list[best_idx_BIC], AIC_list[best_idx_AIC], nodes_list[node_index]
 
 
+def train_on_full_sample(best_init_idx, node, growth, precip, temp, lr, min_delta, patience, verbose, dropout):
+    
+        # ============ Retraining on Full Dataset Using the Best Seed ============
+        # Compute the best seed based on the best initialization index.
+        best_seed = best_init_idx
+
+        # Clear session and reinitialize seeds for reproducibility using best_seed
+        tf.keras.backend.clear_session()
+        tf.random.set_seed(best_seed)
+        np.random.default_rng(best_seed)
+        random.seed(best_seed)
+
+        x_train = [temp, precip]
+        
+        # Initialize the model on the full dataset with the same configuration as before.
+        model_full = Model(nodes=node,
+                        x_train=x_train,
+                        y_train=growth,
+                        dropout=dropout)
+
+        # Train the model on the full dataset.
+        model_full.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
+
+        # Save the final model weights.
+        model_full.save_params('Model Parameters/cv/' + str(node) + '.weights.h5')
+        
+        return None
 
 
-def multiprocessing_model(Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, n_procces):
-    storage = dict()
-    
-    # Prepare an iterable of arguments for each node.
-    # For example, we assume each task gets its node index.
-    # For multiprocessing, wrap all arguments into a tuple.
-    arg_list = [(node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits)
-                for node_index in range(len(nodes_list))]
-    
-    # Pool of workers
 
-    with Pool(n_procces) as pool:
-        # The pool map (or imap_unordered) expects a function that accepts a single argument,
-        # so we use a lambda or helper function to unpack.
-        results = pool.imap_unordered(lambda args: model(*args), arg_list)
-        # Collect results
-        for result in tqdm(results, total=len(nodes_list), desc="Processing nodes", unit="node"):
-            # Depending on mode, result is a tuple like (cv_error, node) or (BIC, AIC, node)
-            if Model_selection == 'CV':
-                cv_error, node = result
-                storage[node] = [cv_error]
-            elif Model_selection == 'IC':
-                bic, aic, node = result
-                storage[node] = [bic, aic]
-    
-    return storage
+
+
 

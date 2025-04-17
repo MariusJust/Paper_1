@@ -10,6 +10,7 @@ def model_with_dropout(self, input_first):
     if self.Depth > 1:
         self.hidden_2 = create_hidden_layer(self, self.nodes[1])
         hidden_2 = self.hidden_2(hidden_1)
+        hidden_2=create_Dropout(self, hidden_2)
         if self.Depth > 2:
             
             self.hidden_3 = create_hidden_layer(self, self.nodes[2])
@@ -63,7 +64,7 @@ def create_output_layer(self, input_tensor):
     return self.output_layer(input_tensor)
 
 def create_Dropout(self, layer):
-    """ Create a dropout layer with a rate of 0.2. """
+    """ Create a dropout layer with a rate specified in the model. """
     dropout = Dropout(rate=self.dropout)
     dropout_layer = dropout(layer)
     return dropout_layer

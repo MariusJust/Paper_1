@@ -16,7 +16,8 @@ def main():
     ]
 
 
-    no_inits = 10                   # Number of different initializations per node
+    
+    no_inits = 12                   # Number of different initializations per node
     seed_value = 0                  # Seed value for random number generation                                      
     lr = 0.001                      # Learning rate
     min_delta = 1e-6                # Tolerance for optimization
@@ -24,7 +25,7 @@ def main():
     verbose = 0                     # Verbosity mode for optimization
     dropout = 0.2                   # Dropout rate (0 means no dropout)
     n_process = 55                  # Number of cores to run on
-    Model_selection= 'IC'           # Model selection, "IC" for information criteria, "CV" for cross-validation
+    Model_selection= 'CV'           # Model selection, "IC" for information criteria, "CV" for cross-validation
     specification = 'global'        # Model specification, "global" or "regional"
     n_splits = 5                    # Number of splits for cross-validation, if Model_selection = IC, argument is ignored
 
