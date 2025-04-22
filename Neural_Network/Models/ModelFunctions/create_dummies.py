@@ -1,13 +1,12 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
 
-def Create_dummies(self, input_dummies):
+def Create_dummies(self, input_dummies, N, T, time_periods_na):
         """ Create and apply the dummies layer to input_x. """
-        input_for_dummies = input_dummies[:, :, :int(self.N['global'])]
-        my_layer = Dummies(N=int(self.N['global']), T=self.T, time_periods_na=self.time_periods_na['global'])
+        input_for_dummies = input_dummies[:, :, :N]
+        my_layer = Dummies(N=N, T=T, time_periods_na=time_periods_na)
         return my_layer(input_for_dummies)
     
-
 
 class Dummies(Layer):
     """
@@ -50,9 +49,9 @@ class Dummies(Layer):
 
         Delta_1 = Delta_1[:, 1:]
         Delta_2 = Delta_2[:, self.time_periods_na + 1:]
-        
+    
         self.noObs = tf.shape(Delta_1)[0]
-        
+
         Delta_1 = tf.reshape(Delta_1, (1, self.noObs, self.N - 1))
         Delta_2 = tf.reshape(Delta_2, (1, self.noObs, self.T - (self.time_periods_na + 1)))
 

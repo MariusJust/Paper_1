@@ -3,7 +3,7 @@
 
 import numpy as np
 import tensorflow as tf
-from Model.ModelFunctions import Prepare
+from Neural_Network.Models.ModelFunctions import Prepare
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  
@@ -12,20 +12,20 @@ import plotly.io as pio
 import os
 
 os.environ['PYTHONHASHSEED'] = str(0)
-from Model import multivariate_model as Model
+from Neural_Network.Build_Network import multivariate_model as Model
 
 #model parameters                    
 lr = 0.001                      # Learning rate
-min_delta = 1e-6                # Tolerance for optimization
-patience = 50                   # Patience for early stopping
+min_delta = 1e-4               # Tolerance for optimization
+patience = 2                   # Patience for early stopping
 verbose = 0                     # Verbosity mode for optimization
-
+formulation = 'regional'          # Model formulation, "global" or "regional"
 
 #prepare the data
 data=pd.read_excel('data/MainData.xlsx')
-growth, precip, temp = Prepare(data)
+growth, precip, temp = Prepare(data, formulation='regional')
 x_train=[temp, precip]
-
+x_train = {'temp':temp, 'precip':precip}
 
 
 ##############################################  Create the prediction input  ########################################################
@@ -69,18 +69,52 @@ pred_input, T, P = create_pred_input()
 ##############################################  define model of interest  ########################################################
 
 
-node=(8,2,2) #model configuration
+node=(2,) #model configuration
 date_of_run='15042025' #date of run
-selection_method='cv'
-dropout=0.2
+selection_method='IC'
+dropout=0
 
-model=Model(node, x_train=x_train, y_train=growth, dropout=dropout)
+model=Model(node, x_train=x_train, y_train=growth, dropout=dropout, formulation=formulation)
 
 #load the best model weights
-model.load_params(f'Model Parameters/{selection_method}/{date_of_run}/' +  str(node)+'.weights.h5')
-model.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
+model.load_params(f'Model Parameters/regional/BIC/'+ str(node)+'.weights.h5')
+model.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=2)
 model.in_sample_predictions()
 
+
+
+growth_pred_flat=model.model_pred['Asia'].predict(pred_input)
+
+
+
+growth_pred_flat = np.reshape(growth_pred_flat, (-1,))   # shape (900,)
+
+# 6. Reshape predictions back to (30, 30) for surface plotting
+Growth = growth_pred_flat.reshape(T.shape)  # shape (30, 30)
+
+
+# Create a surface plot
+fig = go.Figure(data=[go.Surface(z=Growth, x=T, y=P, colorscale='Viridis', opacity=0.8)])
+
+# Update layout with labels, title, and other settings
+fig.update_layout(
+    title=f'3D Surface Plot: Growth vs. Temp & Precip {node}',
+    scene=dict(
+        xaxis_title='Temperature (°C)',
+        yaxis_title='Precipitation (mm)',
+        zaxis_title='Growth',
+        camera=dict(
+            eye=dict(x=1.5, y=1.5, z=1.5)  # Adjust the camera angle
+        )
+    ),
+    coloraxis_colorbar=dict(title="Growth")
+)
+
+# Show the plot
+fig.show()
+
+for region in regions.keys():
+    model.model.regions
 ##############################################  Compare fixed effects with benchmark models  ########################################################
 
                                   
@@ -426,3 +460,9 @@ def confidence_plot(ref_model, results, n_models, save_as_html, pred_input):
         pio.write_html(fig, file=f'images/model_confidence_plot_{ref_model}_{date_of_run}_{selection_method}.html', auto_open=False)
         
 confidence_plot(node, results, 10, save_as_html=True, pred_input=pred_input)
+
+
+
+##############################################  Makes plot of regional model ########################################################
+
+

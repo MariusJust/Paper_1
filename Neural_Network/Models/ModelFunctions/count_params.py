@@ -1,6 +1,6 @@
 from tensorflow.python.keras.backend import count_params
+
 def Count_params(self):
-    
     
     ### needs to be updated count params is deprecated
     """

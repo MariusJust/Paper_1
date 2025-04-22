@@ -7,4 +7,4 @@ def create_fixed_effects(self, Delta1, Delta2):
     self.time_FE_layer = Dense(1, activation='linear', use_bias=False, kernel_initializer=Zeros())
     country_FE = self.country_FE_layer(Delta1)
     time_FE = self.time_FE_layer(Delta2)
-    return country_FE, time_FE
+    return country_FE, time_FE, self.country_FE_layer, self.time_FE_layer

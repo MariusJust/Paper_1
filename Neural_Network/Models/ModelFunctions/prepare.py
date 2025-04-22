@@ -1,4 +1,8 @@
 import numpy as np
+import pandas as pd
+from panelsplit.cross_validation import PanelSplit
+from panelsplit.plot import plot_splits
+
 
 def Prepare(data, formulation):
        #the growth data should contain the following columns: year, county, and GrowthWDI
@@ -45,7 +49,7 @@ def Prepare(data, formulation):
                 pivot_data = pivot_data[cols]  # Reorder columns in the dataframe
                 
                 # we do not standardise the growth data
-                if var == 'growth':
+                if var is growth:
                     dict[region] = pivot_data
                 else:
                     #standardise the data
@@ -53,6 +57,8 @@ def Prepare(data, formulation):
                     std = np.nanstd(pivot_data.values)
                     pivot_data = (pivot_data - mean) / std
                     dict[region] = pivot_data
+    
+        return growth_dict, precip_dict, temp_dict
                 
     elif formulation == 'global':
        
@@ -70,9 +76,28 @@ def Prepare(data, formulation):
             else:
                 standardised_data = (pivot_data - mean) / std
                 dict['global'] = standardised_data
+        region = 'global'
+        return growth_dict, precip_dict, temp_dict
     else:
         raise ValueError("Invalid formulation. Use 'regional' or 'global'.")
 
-    return growth_dict, precip_dict, temp_dict
     
+def load_data(model_selection, n_splits, formulation):
+    if model_selection == 'IC':
+            data = pd.read_excel('data/MainData.xlsx')
+            growth, precip, temp = Prepare(data, formulation)
+            return growth, precip, temp
+    elif model_selection == 'CV':
+        data = pd.read_excel('data/MainData.xlsx')
+        growth, precip, temp = Prepare(data, formulation)
+        
+        # Create a PanelSplit object for cross-validation
+        growth_global = growth['global'].reset_index()
+        growth_global['Year'] = pd.to_datetime(growth_global['Year'], format='%Y')
+        panel_split = PanelSplit(periods=growth_global['Year'], n_splits=n_splits, gap=0, test_size=1)
+        
+        return growth, precip, temp, panel_split
+    else:
+        raise ValueError("Invalid model_selection argument. Use 'IC' or 'CV'.")
+
 

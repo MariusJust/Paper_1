@@ -1,6 +1,7 @@
+from project_setup import main_loop
 from multiprocessing import Pool
 from tqdm import tqdm
-from setup import main_loop as main_loop
+
 
 def multiprocessing_model(Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, n_process, formulation):
     storage = {}

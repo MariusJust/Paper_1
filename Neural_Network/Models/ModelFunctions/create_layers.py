@@ -61,7 +61,7 @@ def create_output_layer(self, input_tensor):
     """ Create the output layer with the specified input tensor. """
     kernel_initializer = he_normal()
     self.output_layer = Dense(1, activation='linear', use_bias=False, kernel_initializer=kernel_initializer)
-    return self.output_layer(input_tensor)
+    return self.output_layer(input_tensor), self.output_layer
 
 def create_Dropout(self, layer):
     """ Create a dropout layer with a rate specified in the model. """

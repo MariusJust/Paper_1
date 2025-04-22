@@ -4,8 +4,8 @@ import numpy as np
 import tensorflow as tf
 import random
 import warnings
-from Model.ModelFunctions import prepare
-from Model import multivariate_model as Model
+from Neural_Network.Models.ModelFunctions import prepare, load_data
+from Neural_Network.Build_Network import multivariate_model as Model
 from panelsplit.cross_validation import PanelSplit
 from panelsplit.plot import plot_splits
 
@@ -13,28 +13,6 @@ warnings.filterwarnings("ignore")
 os.environ['PYTHONHASHSEED'] = str(0)
 
 
-
-
-
-
-
-def load_data(model_selection, n_splits, formulation):
-    if model_selection == 'IC':
-            data = pd.read_excel('data/MainData.xlsx')
-            growth, precip, temp = prepare.Prepare(data, formulation)
-            return growth, precip, temp
-    elif model_selection == 'CV':
-        data = pd.read_excel('data/MainData.xlsx')
-        growth, precip, temp = prepare.Prepare(data, formulation)
-        
-        # Create a PanelSplit object for cross-validation
-        growth_global = growth['global'].reset_index()
-        growth_global['Year'] = pd.to_datetime(growth_global['Year'], format='%Y')
-        panel_split = PanelSplit(periods=growth_global['Year'], n_splits=n_splits, gap=0, test_size=1)
-        
-        return growth, precip, temp, panel_split
-    else:
-        raise ValueError("Invalid model_selection argument. Use 'IC' or 'CV'.")
 
 
 # panel_split = PanelSplit(periods=growth_global['Year'], n_splits=5, gap=0, test_size=1)
@@ -53,17 +31,17 @@ def load_data(model_selection, n_splits, formulation):
 
 
 def main_loop(node_index, Model_selection, nodes_list, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, formulation):
-   
+
     # Determine the model and load data accordingly
     if Model_selection == 'CV':
-        growth, precip, temp, panel_split = setup('CV', n_splits)
+        growth, precip, temp, panel_split = load_data('CV', n_splits, formulation)
     elif Model_selection == 'IC':
-        growth, precip, temp = setup('IC', n_splits)
+        growth, precip, temp= load_data('IC', n_splits, formulation)
     else:
         raise ValueError("Invalid Model_selection. Use 'CV' or 'IC'.")
 
     # List to save model instances and performance metrics from each initialization.
-    models_tmp = [None] * no_inits
+    models_tmp =  np.zeros(no_inits, dtype=object)
 
     # === Cross Validation case ===
     if Model_selection == 'CV':
@@ -78,23 +56,23 @@ def main_loop(node_index, Model_selection, nodes_list, no_inits, seed_value, lr,
                 growth_train = {'global': growth['global'].loc[train_idx]}
                 # Reshape test target as needed; adjust reshape parameters if needed
                 growth_test = np.array(growth['global'].loc[test_idx].reset_index(drop=True)).reshape((1, 1, -1, 1))
-                
+
                 # For temperature and precipitation:
                 temp_train = {'global': temp['global'].loc[train_idx].reset_index(drop=True)}
                 temp_test = np.array(temp['global'].loc[test_idx].reset_index(drop=True)).reshape((1, 1, -1, 1))
-                
+
                 precip_train = {'global': precip['global'].loc[train_idx].reset_index(drop=True)}
                 precip_test = np.array(precip['global'].loc[test_idx].reset_index(drop=True)).reshape((1, 1, -1, 1))
-                
+
                 x_train = [temp_train, precip_train]
                 x_test = tf.concat([temp_test, precip_test], axis=3)
-               
+
                 # Clear session and set seeds for reproducibility
                 tf.keras.backend.clear_session()
                 tf.random.set_seed(current_seed)
                 np.random.default_rng(current_seed)
                 random.seed(current_seed)
-                
+
                 # Initialize and fit the model
                 model_instance = Model(nodes=nodes_list[node_index], x_train=x_train, y_train=growth_train, dropout=dropout)
                 model_instance.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
@@ -105,24 +83,23 @@ def main_loop(node_index, Model_selection, nodes_list, no_inits, seed_value, lr,
                 preds = np.reshape(model_instance.model_pred.predict(x_test), (-1, 1), order='F')
                 mse = np.nanmean((preds - growth_test) ** 2)
                 errors_j.append(mse)
-            
+
             # Average error for this initialization
             cv_errors_inits[j] = np.mean(errors_j)
             print(f"Process {os.getpid()} completed initialization {j+1}/{no_inits} for node {nodes_list[node_index]}", flush=True)
-        
+
         # Select best initialization (i.e., the one with the lowest average MSE)
         best_init_idx = int(np.argmin(cv_errors_inits))
         best_cv_error = cv_errors_inits[best_init_idx]
-        
+
         train_on_full_sample(best_init_idx, nodes_list[node_index], growth, precip, temp, lr, min_delta, patience, verbose, dropout)
 
         return best_cv_error, nodes_list[node_index]
-    
+
     # === Information Criteria case ===
     elif Model_selection == 'IC':
-        # For IC we train on the whole dataset
-        # Here we assume that x_train is a list of two dictionaries with complete data.
-        x_train = [temp, precip]
+        #fit a model for each key in the growth dictionary
+        x_train = {'temp':temp, 'precip':precip}
         BIC_list = np.zeros(no_inits)
         AIC_list = np.zeros(no_inits)
         # Loop over each initialization
@@ -132,27 +109,41 @@ def main_loop(node_index, Model_selection, nodes_list, no_inits, seed_value, lr,
             tf.random.set_seed(current_seed)
             np.random.default_rng(current_seed)
             random.seed(current_seed)
-            
-            model_instance = Model(nodes=nodes_list[node_index], x_train=x_train, y_train=growth, dropout=dropout)
+
+            model_instance = Model(nodes=nodes_list[0], x_train=x_train, y_train=growth, dropout=dropout, formulation=formulation)
             model_instance.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
             model_instance.in_sample_predictions()
             models_tmp[j] = model_instance
-            
+
+            #saves the average AIC and BIC values for each model configuration
             BIC_list[j] = model_instance.BIC
             AIC_list[j] = model_instance.AIC
+
             print(f"Process {os.getpid()} completed initialization {j+1}/{no_inits} (IC mode) for node {nodes_list[node_index]}", flush=True)
-        
+
         # Select the best initialization based on BIC (or AIC)
         best_idx_BIC = int(np.argmin(BIC_list))
         best_idx_AIC = int(np.argmin(AIC_list))
-        models_tmp[best_idx_BIC].save_params('Model Parameters/BIC/' + str(nodes_list[node_index]) + '.weights.h5')
-        models_tmp[best_idx_AIC].save_params('Model Parameters/AIC/' + str(nodes_list[node_index]) + '.weights.h5')
+
+        # Save the best model parameters for each model configuration
         
+        models_tmp[best_idx_BIC].save_params('Model Parameters/' + formulation.capitalize() + '/BIC/' +  str(nodes_list[node_index]) + '.weights.h5')
+        
+        
+        
+        # if formulation =='global':
+          
+        #     # models_tmp[best_idx_AIC].save_params('Model Parameters/global/AIC/' + str(nodes_list[node_index]) + '.weights.h5')
+        # else:
+        #     for i in range(len(growth.keys())):
+        #         models_tmp[best_idx_BIC, i].save_params('Model Parameters/regional/BIC/' + str(nodes_list[node_index]) + '_' + str(growth.keys(i)) + '.weights.h5')
+        #         # models_tmp[best_idx_AIC, i].save_params('Model Parameters/regional/AIC/' + str(nodes_list[node_index]) + '_' + str(growth.keys(i)) + '.weights.h5')7
+        #         
         return BIC_list[best_idx_BIC], AIC_list[best_idx_AIC], nodes_list[node_index]
 
 
 def train_on_full_sample(best_init_idx, node, growth, precip, temp, lr, min_delta, patience, verbose, dropout):
-    
+
         # ============ Retraining on Full Dataset Using the Best Seed ============
         # Compute the best seed based on the best initialization index.
         best_seed = best_init_idx
@@ -164,7 +155,7 @@ def train_on_full_sample(best_init_idx, node, growth, precip, temp, lr, min_delt
         random.seed(best_seed)
 
         x_train = [temp, precip]
-        
+
         # Initialize the model on the full dataset with the same configuration as before.
         model_full = Model(nodes=node,
                         x_train=x_train,
@@ -176,7 +167,7 @@ def train_on_full_sample(best_init_idx, node, growth, precip, temp, lr, min_delt
 
         # Save the final model weights.
         model_full.save_params('Model Parameters/cv/' + str(node) + '.weights.h5')
-        
+
         return None
 
 
