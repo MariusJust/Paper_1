@@ -6,7 +6,7 @@ LOGGING_CONFIG = {
     "disable_existing_loggers": False,
     "formatters": {
         "default": {
-            "format": "%(asctime)s | %(levelname)-8s | %(name)s:%(lineno)d | %(message)s",
+            "format": "%(asctime)s | %(name)s:%(lineno)d | %(message)s",
         },
     },
     "handlers": {
@@ -18,7 +18,7 @@ LOGGING_CONFIG = {
     },
     "root": {
         "handlers": ["console"],
-        "level": "INFO",       # change to DEBUG when you need super‑verbose
+        "level": "DEBUG",       # change to DEBUG when you need super‑verbose
     },
 }
 
