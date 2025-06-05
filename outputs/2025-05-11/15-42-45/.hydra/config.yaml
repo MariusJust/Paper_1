@@ -1,0 +1,17 @@
+instance:
+  no_inits: 2
+  seed_value: 0
+  lr: 0.001
+  min_delta: 0.01
+  patience: 1
+  verbose: 2
+  dropout: 0.2
+  n_process: 1
+  Model_selection: CV
+  formulation: global
+  n_splits: 5
+  cv_approach: full
+  node_list:
+  - (2,)
+  - (4,)
+  - (8,)

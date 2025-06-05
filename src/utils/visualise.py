@@ -7,13 +7,11 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  
 import plotly.graph_objects as go
 import plotly.io as pio
-import os
-import h5py
 
 
 ##############################################  Create the prediction input  ########################################################
 
-def create_pred_input():
+def create_pred_input(mc):
     """
     Create the input for predictions by standardizing temperature and precipitation.
     
@@ -31,9 +29,15 @@ def create_pred_input():
 
     # 3. Standardize T and P according to your known mean/std
     #    (adjust to the same approach you used in your code for standardization).
-    T_std = (T - 18.05) / 7.10
-    P_std = (P - 1094.316) / 678.313  # example standardization if that matches your data
+    if mc:
+       
+        P=P/1000
+        P_std=(P-1094.316/1000)/678.313/1000
+    else:
+         P_std = (P - 1094.316) / 678.313  # example standardization if that matches your data
 
+    T_std=(T - 18.05) / 7.10
+   
     # 4. Reshape for model input
     flat_T_std = T_std.ravel()  # shape (30*30,)
     flat_P_std = P_std.ravel()  # shape (30*30,)
@@ -44,6 +48,8 @@ def create_pred_input():
 
     # We might need (1, 1, 900, 2):
     pred_input = pred_input.reshape((1, 1, -1, 2))  # shape (1,1,900,2)
+    
+   
 
     return pred_input, T, P
 

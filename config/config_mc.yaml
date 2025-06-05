@@ -1,0 +1,21 @@
+# config/monte_carlo.yaml
+defaults:
+  - config       # pulls in config/config.yaml
+
+
+# Monte Carlo–specific block
+mc:
+  reps:         100
+  base_seed:    0
+  specifications:
+  - linear
+  - q_Leirvik
+  breakpoints:
+  - 2
+
+
+# Optional: override any fields from config/config.yaml here:
+instance:
+  Model_selection: 'IC'
+
+  

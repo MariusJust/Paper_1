@@ -1,0 +1,22 @@
+instance:
+  no_inits: 2
+  seed_value: 0
+  lr: 0.001
+  min_delta: 0.01
+  patience: 2
+  verbose: 2
+  dropout: 0.2
+  n_process: 1
+  Model_selection: IC
+  formulation: global
+  n_splits: 5
+  cv_approach: full
+  nodes_list:
+  - (2,)
+  - (4,)
+  - (8,)
+mc:
+  reps: 100
+  base_seed: 0
+  specification: linear
+  synthetic: true

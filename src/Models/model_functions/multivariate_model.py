@@ -1,9 +1,9 @@
 import numpy as np
 import tensorflow as tf
 import pandas as pd 
-import logging
 
-from Models.model_functions import initialize_parameters, Preprocess, Vectorize, Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, Matrixize, individual_loss, model_with_dropout, model_without_dropout, prediction_model_with_dropout, prediction_model_without_dropout
+
+from models.model_functions.helper_functions import initialize_parameters, Preprocess, Vectorize, Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, Matrixize, individual_loss
 from tensorflow.keras.layers import Input, Add, concatenate
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
@@ -15,7 +15,7 @@ class MultivariateModel:
     Class implementing the static neural network model.
     """
 
-    def __init__(self, nodes, x_train, y_train, dropout, formulation):
+    def __init__(self, nodes, x_train, y_train, dropout, formulation, penalty):
         """
         Instantiating class.
 
@@ -29,12 +29,16 @@ class MultivariateModel:
         """
         
         self.nodes = nodes
-        self.Depth = len(self.nodes)
         self.x_train = x_train
         self.y_train = y_train
         self.dropout = dropout
         self.formulation = formulation
+        self.penalty = penalty
+        self._cache = {}
         
+
+
+    def _model_definition(self):
         
         # Initializing parameters
         initialize_parameters(self)
@@ -42,14 +46,15 @@ class MultivariateModel:
         # # Preprocessing data - for both precipitation and temperature        
         Preprocess(self)
         
-        # Model definition
-        self._model_definition()
-
-
-    def _model_definition(self):
-        
         #note we have 2 observations for each country, one for precipitation and one for temperature, therefore the input is of dimension (T, N, 2)
         SetupGlobalModel(self)
+        
+    def get_model(self):
+        key = tuple(self.nodes)
+        if key not in self._cache:
+            self._model_definition()
+            self._cache[key] = self
+        return self._cache[key]
       
     def fit(self, lr, min_delta, patience, verbose):
         """
@@ -93,6 +98,7 @@ class MultivariateModel:
          ARGUMENTS
             * filepath: string containing path/name of saved file.
         """
+
         self.model.load_weights(filepath)
         self.params = self.model.get_weights()
        
@@ -134,7 +140,7 @@ class MultivariateModel:
 
         # Flatten the prediction and training data to vectors
         pred_vector = np.reshape(np.array(self.in_sample_pred['global']), (-1))
-        train_vector = np.reshape(np.array(self.y_train_df['global']), (-1))
+        train_vector = np.reshape(np.array(self.y_train['global']), (-1))
 
         # Store the global predictions and actuals for comparison
         in_sample_pred_global = pred_vector
@@ -145,7 +151,7 @@ class MultivariateModel:
         SSR = np.nansum((in_sample_pred_global - mean_growth) ** 2)
         SSE = np.nansum((in_sample_global - in_sample_pred_global) ** 2)
 
-        
+        MSE = SSE / self.noObs['global']
     
         self.BIC = (np.log(MSE))*self.noObs['global'] + self.m * np.log(self.noObs['global']) 
         self.AIC= (np.log(MSE))*self.noObs['global'] + 2 * self.m

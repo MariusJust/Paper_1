@@ -1,0 +1,20 @@
+instance:
+  no_inits: 1
+  seed_value: 0
+  lr: 0.001
+  min_delta: 0.01
+  patience: 50
+  verbose: 0
+  dropout: 0.2
+  n_process: 1
+  Model_selection: CV
+  formulation: global
+  n_splits: 5
+  cv_approach: full
+  penalty: 0
+  timeout_per_node: 36000
+  n_countries: 196
+  time_periods: 10
+  nodes_list:
+  - (2,)
+  - (4,)
