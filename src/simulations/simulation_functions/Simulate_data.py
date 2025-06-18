@@ -5,7 +5,7 @@ import tensorflow as tf
 import plotly.graph_objects as go
 
 
-def run(seed, n_countries, n_years, specification, add_noise):
+def simulate(seed, n_countries, n_years, specification, add_noise):
        
     """
     Simulate a synthetic panel dataset.
@@ -20,7 +20,7 @@ def run(seed, n_countries, n_years, specification, add_noise):
     np.random.seed(seed)
 
     # 2. Build time & country indices
-    years      = pd.date_range(start='1961', periods=n_years, freq='Y')
+    years      = pd.date_range(start='1961', periods=n_years, freq='YE')
     countries  = [f'Country_{i}' for i in range(n_countries)]
 
     data = []
@@ -63,6 +63,11 @@ def run(seed, n_countries, n_years, specification, add_noise):
                   + time_idx
                   + time_idx_sq
                 )
+                
+                
+                
+                
+                
 
             elif specification == 'q_Leirvik':
                 true_y = (
@@ -78,6 +83,14 @@ def run(seed, n_countries, n_years, specification, add_noise):
                   + time_idx
                   + time_idx_sq
                 )
+                
+                
+                
+                
+                
+                
+                
+                
             elif specification == 'interaction':
                 true_y = (
                     0.01 * temp

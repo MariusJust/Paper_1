@@ -1,4 +1,4 @@
-from utils import save_numpy, save_yaml, multiprocessing_model
+from utils import save_numpy, save_yaml, Multiprocess
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import ast
@@ -13,7 +13,7 @@ def main(cfg: DictConfig):
 
 
     # Run your parallel grid
-    results = multiprocessing_model(
+    worker = Multiprocess(
         Model_selection=inst.Model_selection,
         nodes_list=[ast.literal_eval(s) for s in inst.nodes_list],
         no_inits=inst.no_inits,
@@ -32,6 +32,8 @@ def main(cfg: DictConfig):
         n_countries=inst.n_countries,
         time_periods=inst.time_periods
     )
+    
+    results=worker.run()
 
 
     # Save results 
@@ -40,10 +42,12 @@ def main(cfg: DictConfig):
     
     # Save the configuration
     path = f"results/config/{inst.Model_selection}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
-    save_yaml(path, OmegaConf.to_yaml(cfg))
+    save_yaml(path, OmegaConf.to_yaml(cfg.instance, sort_keys=False))
     
     # return results
     return None
 
 if __name__ == "__main__":    main()
+
+
 

@@ -1,18 +1,20 @@
 import hydra
-from omegaconf import OmegaConf, DictConfig
-from utils import multiprocessing_model,turn_off_warnings
 import pandas as pd
-from simulations.simulation_functions import Simulate_data
-from simulations import multiprocessing_mc, mc_worker
-from utils import multiprocessing_model, save_model_weights, save_yaml
-import ast
-import numpy as np
-from models import MultivariateModelGlobal as Model            
-from datetime import datetime
-import multiprocessing as mp
-turn_off_warnings()
 import tensorflow as tf
 import os
+import ast
+import numpy as np
+import multiprocessing as mp
+from datetime import datetime
+from omegaconf import OmegaConf, DictConfig
+from simulations.simulation_functions import simulate
+from models import MultivariateModelGlobal as Model   
+from utils.parallel import MultiprocessingMC, Multiprocess
+from utils.miscelaneous import turn_off_warnings, save_model_weights, save_yaml     
+
+
+turn_off_warnings()
+
 
 
 #we employ the following simulation procedure: 
@@ -47,11 +49,12 @@ def run_mc(cfg: DictConfig):
         ## step 1
             nodes = [ast.literal_eval(s) for s in cfg.instance.nodes_list]
             train_kwargs = OmegaConf.to_container(cfg.instance, resolve=True)
-            train_kwargs["data"] = Simulate_data.run(seed=cfg.mc.base_seed, n_countries=196, n_years=63, specification=spec, add_noise=True)
+            train_kwargs["data"] = simulate(seed=cfg.mc.base_seed, n_countries=196, n_years=63, specification=spec, add_noise=True)
             train_kwargs["nodes_list"] = nodes
             
         ##step 2
-            results = multiprocessing_model(**train_kwargs)
+            worker = Multiprocess(**train_kwargs)
+            results = worker.run()
             best_node_BIC=min(results, key=lambda k: results[k][0])
             
             
@@ -63,7 +66,7 @@ def run_mc(cfg: DictConfig):
             
             
         ## step 3
-            weights = multiprocessing_mc(
+            worker_mc = MultiprocessingMC(
                 node_index=best_node_idx,
                 nodes_list=nodes,
                 no_inits=cfg.instance.no_inits,
@@ -78,10 +81,13 @@ def run_mc(cfg: DictConfig):
                 formulation=cfg.instance.formulation,
                 reps=cfg.mc.reps,
                 specification=spec,
+                model_selection=cfg.instance.Model_selection,
                 penalty=cfg.instance.penalty,
                 breakpoints=breakpoints,
                 cfg=cfg.instance
             )
+            
+            weights= worker_mc.run()
             
             weights_lists = list(zip(*weights))
 
@@ -98,7 +104,7 @@ def run_mc(cfg: DictConfig):
             growth, precip, temp = Pivot(train_kwargs["data"])
             x_train = {0:temp, 1:precip}
             
-            factory = Model(nodes=best_node, x_train=x_train, y_train=growth, dropout=cfg.instance.dropout, formulation=cfg.instance.formulation, penalty=cfg.instance.penalty)
+            factory = Model(node=best_node, x_train=x_train, y_train=growth, dropout=cfg.instance.dropout, formulation=cfg.instance.formulation, penalty=cfg.instance.penalty)
             
             ensemble_model = factory.get_model()
             ensemble_model.model.set_weights(avg_weights)

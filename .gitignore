@@ -12,3 +12,4 @@ requirements.txt
 *.ipynb
 .vscode/
 __pycache__/
+outputs/

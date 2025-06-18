@@ -1,12 +1,13 @@
 import numpy as np
-from simulation_functions import Simulate_data
+from .Simulate_data import simulate, Pivot
+
 from models import MultivariateModelGlobal as Model    
 
 
 
 def calculate_bias(predictions, specification, best_node, cfg):
 
-    true_data= Simulate_data.run(
+    true_data= simulate(
         seed=0,
         n_countries=196,
         n_years=63,
@@ -14,7 +15,7 @@ def calculate_bias(predictions, specification, best_node, cfg):
         add_noise=False
     )
     
-    train_data= Simulate_data.run(
+    train_data= simulate(
         seed=0,
         n_countries=196,
         n_years=63,
@@ -29,7 +30,7 @@ def calculate_bias(predictions, specification, best_node, cfg):
                 np.mean(np.stack(list, axis=0), axis=0)
                 for list in weights_lists
             ]
-    growth, precip, temp = Simulate_data.Pivot(train_data)
+    growth, precip, temp = Pivot(train_data)
     x_train = {0:temp, 1:precip}
         
     factory = Model(nodes=best_node, x_train=x_train, y_train=growth, dropout=cfg.dropout, formulation=cfg.formulation, penalty=cfg.penalty)
