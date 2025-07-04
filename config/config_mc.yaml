@@ -5,17 +5,18 @@ defaults:
 
 # Monte Carlo–specific block
 mc:
-  reps:         100
+  reps:         1
   base_seed:    0
   specifications:
-  - linear
   - q_Leirvik
+
+
   breakpoints:
   - 2
 
 
 # Optional: override any fields from config/config.yaml here:
 instance:
-  Model_selection: 'IC'
+  model_selection: 'CV'
 
   

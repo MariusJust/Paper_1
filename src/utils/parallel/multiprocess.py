@@ -6,15 +6,15 @@ from .builders import build_arg_list_cv, build_arg_list_ic
 
 class Multiprocess:
     
-    def __init__(self, Model_selection, nodes_list, no_inits,
+    def __init__(self, model_selection, nodes_list, no_inits,
                  seed_value, lr, min_delta, patience,
                  verbose, dropout, n_splits,
-                 n_process, formulation, cv_approach, penalty, timeout_per_node,
+                 n_process,  cv_approach, penalty, timeout_per_node,
                  n_countries, time_periods,
                  data=None):
         
         
-        self.Model_selection = Model_selection
+        self.Model_selection = model_selection
         self.nodes_list = nodes_list
         self.no_inits = no_inits
         self.seed_value = seed_value
@@ -25,7 +25,6 @@ class Multiprocess:
         self.dropout = dropout
         self.n_splits = n_splits
         self.n_process = n_process
-        self.formulation = formulation
         self.cv_approach = cv_approach
         self.penalty = penalty
         self.timeout_per_node = timeout_per_node

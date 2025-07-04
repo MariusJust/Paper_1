@@ -38,18 +38,7 @@ def initialize_parameters(self):
 
         self.model_pred = None
 
-        if self.formulation=='regional':
-        # Preparing data - getting the keys from the dictionaries, region names
-                self.regions = list(self.x_train['temp'].keys())
-                
-                #number of regions
-                self.no_regions = len(self.regions)
 
-                #number of time periods, and the specific time periods
-                self.T = self.x_train['temp'][self.regions[0]].shape[0]
-        
-                self.time_periods = self.x_train['temp'][self.regions[0]].index.values
-                
         self.T = self.x_train[0]['global'].shape[0]
         
         self.time_periods = self.x_train[0]['global'].index.values

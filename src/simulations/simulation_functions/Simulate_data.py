@@ -13,7 +13,7 @@ def simulate(seed, n_countries, n_years, specification, add_noise):
     For each country and time period:
       - Country fixed effect drawn from N(0, 0.1)
       - A cubic time trend
-      - Precipitation and temperature values as inputs
+      - precipitation and temperature values as inputs
       - change in logGDP as the target variable
     """
     # 1. Reproducibility
@@ -35,72 +35,45 @@ def simulate(seed, n_countries, n_years, specification, add_noise):
 
             # 7. Centered inputs
             temp = np.random.uniform(0,30)
-            prec = np.random.uniform(0.012, 5.435)
+            precip = np.random.uniform(0.012, 5.435)
 
             # 8. Compute true_y by specification
             if specification == 'linear':
                 true_y = (
                     0.0008 * temp
-                  + 0.007 * prec
+                  + 0.007 * precip
                   + country_effect
                   + time_idx
                 )
-            elif specification == 'quadratic':
-                   
-                time_idx =   -0.00081 *(year.year - 1961)
-                time_idx_sq=0.00001*time_idx**2
-                peak_temp = 12.0      # degrees Celsius
-              
-
-                # automatically choose the quadratic so that the max is at peak_temp
-                c_temp = - 0.003 / (2 * peak_temp)
-                true_y = (
-                    0.00058 * temp
-                  + 0.0001 * prec
-                  +c_temp * temp**2
-                    +0.001* prec**2
-                  + country_effect
-                  + time_idx
-                  + time_idx_sq
-                )
-                
-                
-                
-                
-                
+    
+                            
 
             elif specification == 'q_Leirvik':
                 true_y = (
                     0.01 * temp
-                  + 0.105 * prec
+                  + 0.105 * precip
                   -0.00048 * temp**2
-                  -0.065* prec**2
-                  -0.0125*temp*prec
-                  +0.00029*prec*temp**2
-                  +0.006*temp*prec**2
-                  -0.00013*temp**2*prec**2
+                  -0.065* precip**2
+                  -0.0125*temp*precip
+                  +0.00029*precip*temp**2
+                  +0.006*temp*precip**2
+                  -0.00013*temp**2*precip**2
                   + country_effect
                   + time_idx
                   + time_idx_sq
                 )
                 
-                
-                
-                
-                
-                
-                
-                
+            
             elif specification == 'interaction':
                 true_y = (
                     0.01 * temp
-                  + 0.105 * prec
+                  + 0.105 * precip
                   -0.00048 * temp**2
-                  -0.07* prec**2
-                  -0.0125*temp*prec
-                  +0.00029*prec*temp**2
-                  +0.007*temp*prec**2
-                  -0.00013*temp**2*prec**2
+                  -0.07* precip**2
+                  -0.0125*temp*precip
+                  +0.00029*precip*temp**2
+                  +0.007*temp*precip**2
+                  -0.00013*temp**2*precip**2
                   + country_effect
                   + time_idx
                   + time_idx_sq
@@ -122,7 +95,7 @@ def simulate(seed, n_countries, n_years, specification, add_noise):
                 'CountryCode': country,
                 'Year': year,
                 'delta_logGDP': y,
-                'precipitation': prec,
+                'precipitation': precip,
                 'temperature': temp
             })
     
@@ -165,7 +138,38 @@ def Pivot(data):
     return growth_dict, precip_dict, temp_dict
           
 
-  
+def surface(temp, precip, specification):
+    """given 2 arrays of temperature and precipitation, return a growth vector without fixed effects"""
+    if specification == 'linear':
+        return 0.0008 * temp + 0.007 * precip
+    elif specification == 'q_Leirvik':
+                return (
+                    0.01 * temp
+                  + 0.105 * precip
+                  -0.00048 * temp**2
+                  -0.065* precip**2
+                  -0.0125*temp*precip
+                  +0.00029*precip*temp**2
+                  +0.006*temp*precip**2
+                  -0.00013*temp**2*precip**2
+                #   + country_effect
+                #   + time_idx
+                #   + time_idx_sq
+                )
+                
+            
+    elif specification == 'interaction':
+                return (
+                    0.01 * temp
+                  + 0.105 * precip
+                  -0.00048 * temp**2
+                  -0.07* precip**2
+                  -0.0125*temp*precip
+                  +0.00029*precip*temp**2
+                  +0.007*temp*precip**2
+                  -0.00013*temp**2*precip**2
+                )
+                
 def illustrate_synthetic_data(x,y,z):
     fig = go.Figure(
     data=go.Scatter3d(
@@ -180,12 +184,39 @@ def illustrate_synthetic_data(x,y,z):
     fig.update_layout(
     scene=dict(
         xaxis_title='Temperature',
-        yaxis_title='Precipitation',
+        yaxis_title='precipitation',
         zaxis_title='Δ logGDP',
-        zaxis=dict(range=[-0.3, 0.3])
+        zaxis=dict(range=[-0.5, 0.5])
             
     ))
 
     fig.show()
     return None
 
+def illustate_surface(temp, precip, growth):
+    plot_data= go.Surface(
+        x=temp, y=precip, z=growth.reshape(temp.shape),
+        colorscale='Cividis',
+        opacity=0.85,
+        showscale=False,
+        name='mean_surface'
+        )
+
+
+    fig = go.Figure(data=[plot_data])
+    fig.update_layout(
+        scene=dict(
+            xaxis_title='Temperature (°C)',
+            yaxis_title='Precipitation (m)',
+            zaxis_title='Δ ln(Growth)',
+            camera=dict(eye=dict(x=2.11, y=0.12, z=0.38))
+        ),
+        legend=dict(
+            bgcolor='rgba(255,255,255,0.7)',
+            bordercolor='black',
+            borderwidth=1
+        )
+    )
+
+
+    fig.show()    

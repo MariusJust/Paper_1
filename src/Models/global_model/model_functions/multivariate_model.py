@@ -15,7 +15,7 @@ class MultivariateModel:
     Class implementing the static neural network model.
     """
 
-    def __init__(self, node, x_train, y_train, dropout, formulation, penalty):
+    def __init__(self, node, x_train, y_train, dropout, penalty):
         """
         Instantiating class.
 
@@ -32,7 +32,6 @@ class MultivariateModel:
         self.x_train = x_train
         self.y_train = y_train
         self.dropout = dropout
-        self.formulation = formulation
         self.penalty = penalty
         self._cache = {}
         

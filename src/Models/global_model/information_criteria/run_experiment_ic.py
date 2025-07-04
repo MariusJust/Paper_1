@@ -9,7 +9,7 @@ from models import MultivariateModelGlobal as Model
 turn_off_warnings()
 
 class MainLoop:
-    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, formulation, n_countries, time_periods, penalty, data=None):
+    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_countries, time_periods, penalty, data=None):
         self.node = node
         self.no_inits = no_inits
         self.seed_value = seed_value
@@ -18,7 +18,6 @@ class MainLoop:
         self.patience = patience
         self.verbose = verbose
         self.dropout = dropout
-        self.formulation = formulation
         self.penalty = penalty
         self.data = data
         self.models_tmp = np.zeros(no_inits, dtype=object)
@@ -31,17 +30,16 @@ class MainLoop:
             x_train=None,     
             y_train=None,
             dropout=self.dropout,
-            formulation=self.formulation,
             penalty=self.penalty
         )
         
         
         # Load data
-        if data is not None:
+        if data is not None: #ie we are running a Monte Carlo experiment
             from simulations.simulation_functions.Simulate_data import Pivot
             self.growth, self.precip, self.temp = Pivot(data)
         else:   
-            self.growth, self.precip, self.temp = load_data('IC', n_countries, time_periods, formulation)
+            self.growth, self.precip, self.temp = load_data('IC', n_countries, time_periods)
    
    
     def run_experiment(self):   
@@ -76,12 +74,13 @@ class MainLoop:
 
         #only save the model parameters if the data is the real data, and not simulated data
         if self.data is None:
-        # Save the best model parameters for each model configuration
+
             self.models_tmp[best_idx_BIC].save_params('results/Model Parameters/BIC/' +  str(self.node) + '.weights.h5')
             self.models_tmp[best_idx_AIC].save_params('results/Model Parameters/AIC/'  +  str(self.node) + '.weights.h5')
             return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node
-        else: 
-            # Return the replication results: for example, the average CV error.
-            return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node, self.models_tmp[best_idx_BIC].model.get_weights(), self.models_tmp[best_idx_AIC].model.get_weights()
+        else: #Monte carlo simulation
+            best_surface=self.models_tmp[best_idx_BIC].model_visual
+            country_FE = self.models_tmp[best_idx_BIC].alpha
+            return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node, best_surface, country_FE 
 
 
