@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import random
-from utils.warnings import turn_off_warnings
+from utils.miscelaneous.warnings import turn_off_warnings
 from models.global_model.model_functions.helper_functions import load_data
 from models import MultivariateModelGlobal as Model
 from models.global_model.cross_validation import train_itteration, test_itteration, train_on_full_sample
@@ -13,11 +13,18 @@ class MainLoop:
     Class implementing the cross-validation loop for model training and evaluation.
     """
 
-    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, formulation, cv_approach, penalty, n_countries, time_periods):
+    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, cv_approach, penalty, n_countries, time_periods, data=None):
          
         turn_off_warnings()
-       
-        growth, precip, temp, panel_split = load_data('CV', formulation, n_countries, time_periods, n_splits=n_splits)
+
+        if data is not None: #ie we are running a Monte Carlo experiment
+            from simulations.simulation_functions.Simulate_data import Pivot
+            growth, precip, temp = Pivot(data)
+            panel_split=load_data('CV', n_countries, time_periods, n_splits=n_splits, growth=growth)
+        else:   
+            growth, precip, temp, panel_split = load_data('CV', n_countries, time_periods, n_splits=n_splits)
+   
+   
     
         self.models_tmp =  np.zeros(no_inits, dtype=object)
         self.cv_errors_inits = np.zeros(no_inits)
@@ -30,13 +37,13 @@ class MainLoop:
         self.verbose = verbose
         self.dropout = dropout
         self.n_splits = n_splits
-        self.formulation = formulation
         self.growth = growth
         self.temp = temp
         self.precip = precip
         self.panel_split = panel_split
         self.cv_approach = cv_approach
         self.penalty = penalty
+        self.data = data
     
        # make a factory object to store pycache and avoid re-initializing the model each time
         self.factory = Model(
@@ -44,9 +51,9 @@ class MainLoop:
                 x_train=None,   
                 y_train=None,
                 dropout=self.dropout,
-                formulation=self.formulation,
                 penalty=self.penalty
             )
+     
       
     def run_experiment(self):   
         """
@@ -69,9 +76,10 @@ class MainLoop:
         self.best_cv_error = self.cv_errors_inits[self.best_init_idx]
         
         #retrain the model on the full dataset using the best initialization
+      
         train_on_full_sample(self)
         
-        return self.best_cv_error, self.node
+        return self.best_cv_error, self.node, self.model_full.model_visual, self.model_full.beta
             
     def cv_full(self, j):
         

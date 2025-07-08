@@ -13,3 +13,4 @@ requirements.txt
 .vscode/
 __pycache__/
 outputs/
+debug.py

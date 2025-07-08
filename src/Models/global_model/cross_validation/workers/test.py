@@ -23,7 +23,7 @@ def test_itteration(self, test_idx, country_FE, time_FE):
         time_FE=tf.reshape(time_FE, (1, 1, 1,1))
         
         # predicting x_test by using the neural network (as defined in model_pred) and appending the fixed effects
-        preds = np.reshape(self.model_instance.model_pred.predict([x_test, full_country_FE, time_FE]), (-1, 1), order='F')
+        preds = np.reshape(self.model_instance.model_pred.predict([x_test, full_country_FE, time_FE], verbose=self.verbose),  (-1, 1), order='F')
         mse = np.nanmean((preds - growth_test) ** 2)
         return mse
     

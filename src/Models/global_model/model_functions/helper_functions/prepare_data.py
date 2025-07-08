@@ -45,7 +45,7 @@ def Prepare(data,  n_countries, time_periods):
     return growth_dict, precip_dict, temp_dict
 
     
-def load_data(model_selection, n_countries, time_periods, n_splits=None):
+def load_data(model_selection, n_countries, time_periods, n_splits=None, growth=None):
     
     if model_selection == 'IC':
             data = pd.read_excel('data/MainData.xlsx')
@@ -53,15 +53,18 @@ def load_data(model_selection, n_countries, time_periods, n_splits=None):
             return growth, precip, temp
         
     elif model_selection == 'CV':
-        data = pd.read_excel('data/MainData.xlsx')
-        growth, precip, temp = Prepare(data, n_countries, time_periods)
-        
-        # Create a PanelSplit object for cross-validation
-        growth_global = growth['global'].reset_index()
-        growth_global['Year'] = pd.to_datetime(growth_global['Year'], format='%Y')
-        panel_split = PanelSplit(periods=growth_global['Year'], n_splits=n_splits, gap=0, test_size=1)
-        
-        return growth, precip, temp, panel_split
+        if growth is None:
+            data = pd.read_excel('data/MainData.xlsx')
+            growth, precip, temp = Prepare(data, n_countries, time_periods)
+            return growth, precip, temp, panel_split
+        else: #mc case
+            # Create a PanelSplit object for cross-validation
+            growth_global = growth['global'].reset_index()
+            growth_global['Year'] = pd.to_datetime(growth_global['Year'], format='%Y')
+            panel_split = PanelSplit(periods=growth_global['Year'], n_splits=n_splits, gap=0, test_size=1)
+            
+            return panel_split
+       
     else:
         raise ValueError("Invalid model_selection argument. Use 'IC' or 'CV'.")
 

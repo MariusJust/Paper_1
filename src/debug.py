@@ -2,8 +2,7 @@
 import hydra
 from omegaconf import OmegaConf, DictConfig
 import pandas as pd
-from simulations.simulation_functions import Simulate_data
-from simulations.simulation_functions.Simulate_data import Pivot
+from simulations.simulation_functions.Simulate_data import Pivot, simulate, illustrate_synthetic_data, surface
 import ast
 import numpy as np
 from models import MultivariateModelGlobal as Model            
@@ -22,51 +21,55 @@ import scipy.ndimage as ndi
 lr = 0.001                      # Learning rate
 min_delta = 1e-6               # Tolerance for optimization
 patience = 20                   # Patience for early stopping
-verbose = 2                     # Verbosity mode for optimization
-formulation = 'global'          # Model formulation, "global" or "regional"
+verbose = 2                     # Verbosity mode for optimization        # Model formulation, "global" or "regional"
 base_seed = 0
-specification = 'q_Leirvik'  # Specification for the simulation
+specification = 'q_Leirvik'    # Specification of the model, e.g. 'linear', 'interaction', 'q_Leirvik'
 
 
-
-data= Simulate_data.simulate(seed=base_seed, n_countries=196, n_years=63, specification=specification, add_noise=True)
+data= simulate(seed=base_seed, n_countries=196, n_years=63, specification=specification, add_noise=True)
 growth, precip, temp = Pivot(data)
 x_train = {0:temp, 1:precip}
 
 
 
 #show the full dataset
-Simulate_data.illustrate_synthetic_data(temp['global'].values.flatten(), precip['global'].values.flatten(), growth['global'].values.flatten())
+illustrate_synthetic_data(temp['global'].values.flatten(), precip['global'].values.flatten(), growth['global'].values.flatten())
 
 #show the corresponding surface
 pred_input, T, P=create_pred_input(True)
-z = Simulate_data.surface(T,P,specification=specification)
-Simulate_data.illustate_surface(T, P, z )
+z = surface(T,P,specification=specification)
+illustate_surface(T, P, z )
 
 
 
 ######### make a single monte carlo replication #########'
 
-node=(16,)
 
-# Create the model instance
-factory= Model(node=node, x_train=x_train, y_train=growth, dropout=0, penalty=0)
-model_instance=factory.get_model()
-model_instance.fit( lr=lr,
-        min_delta=min_delta,
-        patience=patience,
-        verbose=verbose)
-pred_flat=model_instance.model_visual.predict(pred_input).reshape(-1,)
-growth=pred_flat.reshape(T.shape)
+
+# # Create the model instance
+# factory= Model(node=node, x_train=x_train, y_train=growth, dropout=0, penalty=0)
+# model_instance=factory.get_model()
+# model_instance.fit( lr=lr,
+#         min_delta=min_delta,
+#         patience=patience,
+#         verbose=verbose)
+# pred_flat=model_instance.model_visual.predict(pred_input).reshape(-1,)
+# growth=pred_flat.reshape(T.shape)
 
 #alternatively load the data from a file
+spec="q_Leirvik"
+date="2025-07-08"
+node=(2,)
 
-surfaces=np.load("../results/MonteCarlo/q_Leirvik/2025-07-03/_avg_surface.np.npy")
+# surface_linear=np.load(f"../results/MonteCarlo/linear/{date}/_avg_surface.np.npy")
+# surface_interaction=np.load(f"../results/MonteCarlo/interaction/{date}/_avg_surface.np.npy")
+surfaces=np.load(f"../results/MonteCarlo/{spec}/{date}/_avg_surface.np.npy")
 
-
+# growth_linear=np.mean(surface_linear, axis=0)
+# growth_interaction=np.mean(surface_interaction, axis=0)
 growth=np.mean(surfaces, axis=0)
-
-
+growth=surfaces[0]
+pred_input, T, P=create_pred_input(True)
 surf = go.Surface(
         x=T, y=P, z=growth.reshape(T.shape),
         colorscale='Cividis',
@@ -75,14 +78,22 @@ surf = go.Surface(
         name=f'Model {node}'
     )
 
-benchmark = Simulate_data.surface(T, P, specification=specification)
+# surface_interaction=go.Surface(
+#         x=T, y=P, z=growth_interaction.reshape(T.shape),
+#         colorscale='Cividis',
+#         opacity=0.85,
+#         showscale=False,
+#         name=f'Model {node}'
+#     )
+
+benchmark = surface(T.flatten(), P.flatten(), specification=spec)
 
 bench_surf= go.Surface(
         x=T, y=P, z=benchmark.reshape(T.shape),
         colorscale='Cividis',
         opacity=0.85,
         showscale=False,
-        name=f'Model {node}'
+        name=f'Benchmark'
     )
 
    
@@ -107,7 +118,7 @@ fig.update_layout(
 fig.show()
 
 
-bias_surf = growth.reshape(T.shape) - benc.reshape(T.shape)
+bias_surf = growth_q.reshape(T.shape) - benchmark.reshape(T.shape)
 
 heatmap = go.Heatmap(
     x=T[0, :],            # unique T values along x
@@ -132,3 +143,4 @@ fig.show()
 
 
 
+########## linear model ##########

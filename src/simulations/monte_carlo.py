@@ -1,24 +1,13 @@
 import hydra
-import pandas as pd
 import tensorflow as tf
 import os
 import ast
-import numpy as np
 import multiprocessing as mp
 from datetime import datetime
 from omegaconf import OmegaConf, DictConfig
-from simulations.simulation_functions import simulate
-from models import MultivariateModelGlobal as Model   
+from simulations.simulation_functions import Pivot, simulate, illustrate_synthetic_data
 from utils.parallel import MultiprocessingMC, Multiprocess
-from utils.miscelaneous import turn_off_warnings, save_model_weights, save_yaml, save_numpy
-from utils import create_pred_input
-from simulations.simulation_functions.Simulate_data import Pivot 
-
-import plotly.io as pio
-import plotly.graph_objects as go
-
-turn_off_warnings()
-
+from utils.miscelaneous import save_yaml, save_numpy
 
 def mc_loop(cfg, spec):
     
@@ -33,29 +22,42 @@ def mc_loop(cfg, spec):
 ###############################################################################################################################################################
 
    
-# ## step 1
+## step 1
     nodes = [ast.literal_eval(s) for s in cfg.instance.nodes_list]
-    train_kwargs = OmegaConf.to_container(cfg.instance, resolve=True)
-    train_kwargs["data"] = simulate(seed=cfg.mc.base_seed, n_countries=196, n_years=63, specification=spec, add_noise=True)
-   
-   
-    train_kwargs["nodes_list"] = nodes
+    train_kwargs = {
+    "cfg": cfg.instance,
+    "data": simulate(
+        seed=cfg.mc.base_seed,
+        n_countries=196,
+        n_years=63,
+        specification=spec,
+        add_noise=True,
+    ),
+    }
     
-# ##step 2
+    #illustrate the data
+    import numpy as np
+    growth, precip, temp = Pivot(train_kwargs["data"])
+    illustrate_synthetic_data(np.array(temp['global']).flatten(), np.array(precip['global']).flatten(),np.array( growth['global']).flatten())
+
+    
+## step 2
     worker = Multiprocess(**train_kwargs)
     results = worker.run()
-    best_node_BIC=min(results, key=lambda k: results[k][0])
-
-    best_node=best_node_BIC
+    if cfg.instance.model_selection == "IC":
+        # Select the best node based on BIC
+        best_node = min(results, key=lambda k: results[k][0])
+    else:
+        # Select the best node based on cross validation error
+        best_node= min(results, key=lambda k: results[k])
+       
     best_node_idx=nodes.index(best_node)
  
     
     print(f"\n=== Running {cfg.mc.reps} Monte Carlo itterations for node {best_node} ===")
-    
 
-   
     
-# ## step 3
+## step 3
     worker_mc = MultiprocessingMC(
         node_index=best_node_idx,
         nodes_list=nodes,
@@ -76,13 +78,13 @@ def mc_loop(cfg, spec):
     
     # Save the model weights
     
-    path = f"../../../results/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/_avg_surface.np"
+    path = f"results/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/_avg_surface.np"
     save_numpy(path, all_surfaces)
 
-    path=f"../../../results/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/_country_FE.np"
+    path=f"results/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/_country_FE.np"
     save_numpy(path, country_FE)
 
-    path= f"../../../results/config/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
+    path= f"results/config/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
     save_yaml(path, OmegaConf.to_yaml(cfg))
         
 
@@ -94,18 +96,18 @@ def mc_loop(cfg, spec):
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
     
-    @hydra.main(config_path="../../config", config_name="config_mc")
+    @hydra.main(config_path="../../config", config_name="config_mc", version_base="1.2")
     def run_mc(cfg: DictConfig):
         # unpack configs
         specs      = cfg.mc.specifications
         breakpoints= cfg.mc.breakpoints
 
         for spec in specs:
-            if not os.path.exists(f"../../../results/Model Parameters/MonteCarlo"):
+            if not os.path.exists(f"results/MonteCarlo"):
                 raise FileNotFoundError("The directory for saving model weights does not exist.")
         
 
-            print(f"\n=== Running Monte Carlo for specification: {spec} ===")
+            print(f"\n======== Running Monte Carlo for specification: {spec} ============")
             
             print(f"\n=== Running initial training loop ===")
     

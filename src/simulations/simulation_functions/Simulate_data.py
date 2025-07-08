@@ -44,9 +44,7 @@ def simulate(seed, n_countries, n_years, specification, add_noise):
                   + 0.007 * precip
                   + country_effect
                   + time_idx
-                )
-    
-                            
+                )         
 
             elif specification == 'q_Leirvik':
                 true_y = (
@@ -139,9 +137,19 @@ def Pivot(data):
           
 
 def surface(temp, precip, specification):
-    """given 2 arrays of temperature and precipitation, return a growth vector without fixed effects"""
+    """ Calculate the surface of growth based on temperature and precipitation.
+
+    Args:
+        temp (np.ndarray): 1D array of temperature values.
+        precip (np.ndarray): 1D array of precipitation values.
+        specification (str): Specification for the surface calculation ('linear', 'q_Leirvik', or 'interaction').
+    Returns:
+        np.ndarray: 1D array of growth values based on the specified surface.
+    """
+    
     if specification == 'linear':
         return 0.0008 * temp + 0.007 * precip
+    
     elif specification == 'q_Leirvik':
                 return (
                     0.01 * temp
@@ -152,9 +160,7 @@ def surface(temp, precip, specification):
                   +0.00029*precip*temp**2
                   +0.006*temp*precip**2
                   -0.00013*temp**2*precip**2
-                #   + country_effect
-                #   + time_idx
-                #   + time_idx_sq
+              
                 )
                 
             
@@ -171,6 +177,7 @@ def surface(temp, precip, specification):
                 )
                 
 def illustrate_synthetic_data(x,y,z):
+    
     fig = go.Figure(
     data=go.Scatter3d(
     x=x,
@@ -185,15 +192,19 @@ def illustrate_synthetic_data(x,y,z):
     scene=dict(
         xaxis_title='Temperature',
         yaxis_title='precipitation',
-        zaxis_title='Δ logGDP',
-        zaxis=dict(range=[-0.5, 0.5])
-            
-    ))
+        zaxis_title='Δ logGDP')
+    )
 
     fig.show()
     return None
 
 def illustate_surface(temp, precip, growth):
+    """ Illustrate the 3d surface of growth based on temperature and precipitation.
+    Args:
+        temp (np.ndarray): 1D array of temperature values.
+        precip (np.ndarray): 1D array of precipitation values.
+        growth (np.ndarray): 1D array of growth values.
+    """
     plot_data= go.Surface(
         x=temp, y=precip, z=growth.reshape(temp.shape),
         colorscale='Cividis',
@@ -217,6 +228,5 @@ def illustate_surface(temp, precip, growth):
             borderwidth=1
         )
     )
-
 
     fig.show()    

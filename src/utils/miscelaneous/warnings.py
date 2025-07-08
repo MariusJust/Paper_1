@@ -1,7 +1,15 @@
 def turn_off_warnings():
-    import os
-    os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-    import absl.logging
+    import absl.logging, logging, tensorflow as tf
+    # Abseil → only ERROR+
     absl.logging.set_verbosity(absl.logging.ERROR)
     absl.logging.set_stderrthreshold("error")
+
+    # TensorFlow Python‑side logger → only ERROR+
+    tf.get_logger().setLevel(logging.ERROR)
+    # disable autograph/graph‑building logs
+    tf.autograph.set_verbosity(0)
+
+    # globally disable Keras’s progress bar callback
+    from tensorflow.keras.callbacks import ProgbarLogger
+
+    ProgbarLogger.__init__ = lambda *args, **kwargs: None

@@ -1,7 +1,7 @@
 import multiprocessing as mp
-from models.global_model.information_criteria.run_experiment_ic import MainLoop
 from .builders import build_arg_list_mc
 from .manager import setup_manager
+import time
 
 
 class MultiprocessingMC:
@@ -18,6 +18,9 @@ class MultiprocessingMC:
     
     def run(self):
         
+        # record start time for runtime tracking
+        self.start_time = time.time()
+
         #manager for shared data dictionary
         setup_manager(self)
         
@@ -33,11 +36,16 @@ class MultiprocessingMC:
         self.all_country_FE = []
         
         def callback_one(result):
-            best_surface, country_FE = result
+            best_surface, country_FE, runtime = result
             with self.lock:
                 self.counter.value += 1
                 self.all_surfaces.append(best_surface)
                 self.all_country_FE.append(country_FE)
+                
+                #runtime tracking 
+                runtime =runtime/60
+                elapsed_time = (time.time() - self.start_time)/60
+                print(f"Process {self.counter.value}/{self.cfg.mc.reps} completed in {runtime: .2f} min. Total elapsed time: {elapsed_time: .2f} min.")
                 
 
         # apply_async expects a function and its arguments, so we need to pass the mc_worker function and the args as a tuple. I also added a callback function to handle breakpoints and bias calculation.
@@ -55,12 +63,23 @@ class MultiprocessingMC:
 
         
 def mc_worker(args):
+    import time
+    t0 = time.time()
     from utils import create_pred_input
     pred_input, *unused=create_pred_input(True)
-    main_loop= MainLoop(*args)
-    *unused, best_surface, country_FE = main_loop.run_experiment()
-
-    return best_surface.predict(pred_input).reshape(-1,), country_FE
+    
+    if len(args) == 14: #cv case
+        from models.global_model.cross_validation.run_experiment_cv import MainLoop
+        main_loop = MainLoop(*args)
+        *unused, best_surface, country_FE= main_loop.run_experiment()
+    else:
+        from models.global_model.information_criteria.run_experiment_ic import MainLoop
+        main_loop= MainLoop(*args)
+        *unused, best_surface, country_FE = main_loop.run_experiment()
+    
+    runtime= time.time() - t0
+  
+    return best_surface.predict({"X_in": pred_input}, verbose=0).reshape(-1,), country_FE, runtime
 
 
         

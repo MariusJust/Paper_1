@@ -14,7 +14,8 @@ def build_arg_list_cv(self):
         self.cv_approach, 
         self.penalty,
         self.n_countries, 
-        self.time_periods
+        self.time_periods,
+        self.data
     ) for i in range(len(self.nodes_list))]
 
 
@@ -40,16 +41,18 @@ def build_arg_list_mc(self):
     self.rep_args = [
         (
             self.nodes_list[self.node_index],  # node
-            self.cfg.instance.no_inits,
-            self.cfg.instance.seed_value + rep,  # replication_seed
+            self.cfg.instance.no_inits, 
+            self.cfg.instance.seed_value, 
             self.cfg.instance.lr,
-            self.cfg.instance.min_delta,
-            self.cfg.instance.patience,
-            self.cfg.instance.verbose,
+            self.cfg.instance.min_delta, 
+            self.cfg.instance.patience, 
+            self.cfg.instance.verbose, 
             self.cfg.instance.dropout,
+            self.cfg.instance.n_splits, 
+            self.cfg.instance.cv_approach, 
+            self.cfg.instance.penalty,
             self.cfg.instance.n_countries, 
             self.cfg.instance.time_periods,
-            self.cfg.instance.penalty,
             simulate(seed=self.cfg.instance.seed_value + rep + 1, n_countries=self.cfg.instance.n_countries, n_years=63, specification=self.specification, add_noise=True)  # data
         )
         for rep in range(self.cfg.mc.reps)
