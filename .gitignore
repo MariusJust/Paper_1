@@ -9,7 +9,6 @@ slurm.py
 results.npy
 plot.py
 requirements.txt
-*.ipynb
 .vscode/
 __pycache__/
 outputs/
