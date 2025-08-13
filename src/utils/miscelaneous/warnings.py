@@ -9,7 +9,4 @@ def turn_off_warnings():
     # disable autograph/graph‑building logs
     tf.autograph.set_verbosity(0)
 
-    # globally disable Keras’s progress bar callback
-    from tensorflow.keras.callbacks import ProgbarLogger
-
-    ProgbarLogger.__init__ = lambda *args, **kwargs: None
+   

@@ -1,4 +1,3 @@
-from simulations.simulation_functions.bias import calculate_bias
 import multiprocessing as mp
 
 def setup_manager(self):

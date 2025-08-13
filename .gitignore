@@ -14,3 +14,4 @@ requirements.txt
 __pycache__/
 outputs/
 debug.py
+.venv/

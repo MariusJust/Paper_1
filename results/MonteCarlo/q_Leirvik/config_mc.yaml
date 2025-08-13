@@ -1,23 +1,28 @@
-# config/monte_carlo.yaml
-defaults:
-  - config       # pulls in config/config.yaml
+version_base: 1.1
 
+defaults:
+  - _self_
+  - config       # pulls in config/config.yaml
 
 # Monte Carlo–specific block
 mc:
   reps:         100
   base_seed:    0
   specifications:
-  - linear
-  - q_Leirvik
-
+    - linear
+    - q_Leirvik
+    - interaction
 
   breakpoints:
-  - 2
+    - 2
 
-
-# Optional: override any fields from config/config.yaml here:
 instance:
-  model_selection: 'IC'
+  model_selection: 'CV'
 
-  
+hydra:
+  hydra_logging:
+    level: DISABLED
+  job_logging:
+    level: WARNING
+  verbose: false
+

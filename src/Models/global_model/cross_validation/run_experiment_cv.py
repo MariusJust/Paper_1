@@ -18,7 +18,7 @@ class MainLoop:
         turn_off_warnings()
 
         if data is not None: #ie we are running a Monte Carlo experiment
-            from simulations.simulation_functions.Simulate_data import Pivot
+            from simulations.simulation_functions.simulate_data import Pivot
             growth, precip, temp = Pivot(data)
             panel_split=load_data('CV', n_countries, time_periods, n_splits=n_splits, growth=growth)
         else:   

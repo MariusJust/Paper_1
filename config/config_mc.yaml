@@ -6,12 +6,12 @@ defaults:
 
 # Monte Carlo–specific block
 mc:
-  reps:         100
+  reps:         1
   base_seed:    0
   specifications:
-    # - linear
+    - linear
     - q_Leirvik
-    - interaction
+    # - interaction
 
   breakpoints:
     - 2

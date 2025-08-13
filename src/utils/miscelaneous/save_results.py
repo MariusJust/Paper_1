@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import os
-import yaml
+# import yaml
 
 
 def save_numpy(filepath, array):
@@ -23,22 +23,23 @@ def save_numpy(filepath, array):
 
 
 def save_yaml(filepath, data):
-    """
-    Save data to a YAML file at the given filepath, creating directories if needed.
+    # """
+    # Save data to a YAML file at the given filepath, creating directories if needed.
 
-    Parameters:
-    - filepath (str): Full path (including filename) where the YAML file should be saved.
-    - data (dict): The data to save in YAML format.
-    """
-    # Extract directory from filepath
-    dir_path = os.path.dirname(filepath)
+    # Parameters:
+    # - filepath (str): Full path (including filename) where the YAML file should be saved.
+    # - data (dict): The data to save in YAML format.
+    # """
+    # # Extract directory from filepath
+    # dir_path = os.path.dirname(filepath)
     
-    # Create directory if it doesn't exist
-    os.makedirs(dir_path)
+    # # Create directory if it doesn't exist
+    # os.makedirs(dir_path)
     
-    # Save the data to a YAML file with pretty formatting
-    with open(filepath, 'w') as file:
-        yaml.dump(data, file, default_flow_style=False, sort_keys=False)
+    # # Save the data to a YAML file with pretty formatting
+    # with open(filepath, 'w') as file:
+    #     yaml.dump(data, file, default_flow_style=False, sort_keys=False)
+    return None
 
 def save_model_weights(filepath, model):
     """

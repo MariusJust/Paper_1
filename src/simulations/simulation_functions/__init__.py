@@ -1,2 +1,2 @@
 
-from .Simulate_data import simulate, Pivot, illustrate_synthetic_data, illustate_surface
+from .simulate_data import simulate, Pivot, illustrate_synthetic_data, illustate_surface, Surface

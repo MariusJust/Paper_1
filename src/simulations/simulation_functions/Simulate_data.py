@@ -125,7 +125,7 @@ def Pivot(data):
         mean = np.nanmean(pivot_data.values)
     
         std = np.nanstd(pivot_data.values)
-        
+       
         #we do not standardise the growth data 
         if var is growth:
             dict['global'] = pivot_data
@@ -134,9 +134,10 @@ def Pivot(data):
             dict['global'] = standardised_data
     
     return growth_dict, precip_dict, temp_dict
-          
 
-def surface(temp, precip, specification):
+
+
+def Surface(temp, precip, specification):
     """ Calculate the surface of growth based on temperature and precipitation.
 
     Args:

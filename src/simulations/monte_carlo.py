@@ -1,3 +1,6 @@
+from utils.miscelaneous.warnings import turn_off_warnings
+turn_off_warnings()
+
 import hydra
 import tensorflow as tf
 import os
@@ -24,6 +27,8 @@ def mc_loop(cfg, spec):
    
 ## step 1
     nodes = [ast.literal_eval(s) for s in cfg.instance.nodes_list]
+    print(f"[DEBUG] spec={spec!r}, nodes_list has {len(nodes)} entries: {nodes}", flush=True)
+    
     train_kwargs = {
     "cfg": cfg.instance,
     "data": simulate(
@@ -36,9 +41,9 @@ def mc_loop(cfg, spec):
     }
     
     #illustrate the data
-    import numpy as np
-    growth, precip, temp = Pivot(train_kwargs["data"])
-    illustrate_synthetic_data(np.array(temp['global']).flatten(), np.array(precip['global']).flatten(),np.array( growth['global']).flatten())
+    # import numpy as np
+    # growth, precip, temp = Pivot(train_kwargs["data"])
+    # illustrate_synthetic_data(np.array(temp['global']).flatten(), np.array(precip['global']).flatten(),np.array( growth['global']).flatten())
 
     
 ## step 2

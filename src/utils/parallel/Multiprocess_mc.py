@@ -66,8 +66,22 @@ def mc_worker(args):
     import time
     t0 = time.time()
     from utils import create_pred_input
-    pred_input, *unused=create_pred_input(True)
+    import numpy as np
     
+    # 1)grab the exact μ/σ that the model trained on
+    mean_T = np.mean(args[-1]["temperature"])
+    std_T  = np.std(args[-1]["temperature"])
+    mean_P = np.mean(args[-1]["precipitation"])
+    std_P  = np.std(args[-1]["precipitation"])
+
+    # 2) build the prediction grid *with those same* stats
+    pred_input, T, P = create_pred_input(
+        mc=True,
+        mean_T=mean_T, std_T=std_T,
+        mean_P=mean_P, std_P=std_P
+    )
+    
+    # 3) train the model with the given args
     if len(args) == 14: #cv case
         from models.global_model.cross_validation.run_experiment_cv import MainLoop
         main_loop = MainLoop(*args)
@@ -78,7 +92,8 @@ def mc_worker(args):
         *unused, best_surface, country_FE = main_loop.run_experiment()
     
     runtime= time.time() - t0
-  
+    
+    # 4) predict using the best surface, note that pred input now has the same μ/σ as the training data
     return best_surface.predict({"X_in": pred_input}, verbose=0).reshape(-1,), country_FE, runtime
 
 
