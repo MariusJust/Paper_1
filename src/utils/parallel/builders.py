@@ -1,4 +1,4 @@
-from simulations.simulation_functions import simulate
+
  
 def build_arg_list_cv(self):
         self.arg_list=[(
@@ -15,6 +15,7 @@ def build_arg_list_cv(self):
         self.penalty,
         self.n_countries, 
         self.time_periods,
+        self.country_trends,
         self.data
     ) for i in range(len(self.nodes_list))]
 
@@ -32,29 +33,56 @@ def build_arg_list_ic(self):
         self.n_countries, 
         self.time_periods,
         self.penalty,
+        self.country_trends,
         self.data
         ) for i in range(len(self.nodes_list))]
             
   
 def build_arg_list_mc(self):
-
-    self.rep_args = [
-        (
-            self.nodes_list[self.node_index],  # node
-            self.cfg.instance.no_inits, 
-            self.cfg.instance.seed_value, 
-            self.cfg.instance.lr,
-            self.cfg.instance.min_delta, 
-            self.cfg.instance.patience, 
-            self.cfg.instance.verbose, 
-            self.cfg.instance.dropout,
-            self.cfg.instance.n_splits, 
-            self.cfg.instance.cv_approach, 
-            self.cfg.instance.penalty,
-            self.cfg.instance.n_countries, 
-            self.cfg.instance.time_periods,
-            simulate(seed=self.cfg.instance.seed_value + rep + 1, n_countries=self.cfg.instance.n_countries, n_years=63, specification=self.specification, add_noise=True)  # data
-        )
+    from simulations.simulation_functions import simulate
+    if self.model == "NN":
+        self.rep_args = [
+            {
+                "model": self.model,                               # keep for branching
+                "node": self.nodes_list[self.node_index],
+                "no_inits": self.cfg.instance.no_inits,
+                "seed_value": self.cfg.instance.seed_value + rep + 1,  
+                "lr": self.cfg.instance.lr,
+                "min_delta": self.cfg.instance.min_delta,
+                "patience": self.cfg.instance.patience,
+                "verbose": self.cfg.instance.verbose,
+                "dropout": self.cfg.instance.dropout,
+                "n_splits": self.cfg.instance.n_splits,
+                "cv_approach": self.cfg.instance.cv_approach,
+                "penalty": self.cfg.instance.penalty,
+                "n_countries": self.cfg.instance.n_countries,
+                "time_periods": self.cfg.instance.time_periods,
+                "country_trends": self.cfg.instance.country_trends,
+                "model_selection":self.cfg.instance.model_selection,
+                "data": simulate(
+                    seed=self.cfg.instance.seed_value + rep + 1,
+                    n_countries=self.cfg.instance.n_countries,
+                    n_years=63,
+                    specification=self.specification,
+                    add_noise=True,
+                    sample_data=True
+                )
+            }
+            for rep in range(self.cfg.mc.reps)
+        ]
+    else:
+        self.rep_args = [
+        {
+            "model": self.model,
+            "data": simulate(
+                seed=self.cfg.instance.seed_value + rep + 1,
+                n_countries=self.cfg.instance.n_countries,
+                n_years=63,
+                specification=self.specification,
+                add_noise=True,
+                sample_data=True
+            )
+        }
         for rep in range(self.cfg.mc.reps)
     ]
     

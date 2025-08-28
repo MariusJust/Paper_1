@@ -13,7 +13,7 @@ class MainLoop:
     Class implementing the cross-validation loop for model training and evaluation.
     """
 
-    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, cv_approach, penalty, n_countries, time_periods, data=None):
+    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, cv_approach, penalty, n_countries, time_periods, country_trends, data=None):
          
         turn_off_warnings()
 
@@ -44,6 +44,7 @@ class MainLoop:
         self.cv_approach = cv_approach
         self.penalty = penalty
         self.data = data
+        self.country_trends=country_trends
     
        # make a factory object to store pycache and avoid re-initializing the model each time
         self.factory = Model(
@@ -51,7 +52,8 @@ class MainLoop:
                 x_train=None,   
                 y_train=None,
                 dropout=self.dropout,
-                penalty=self.penalty
+                penalty=self.penalty,
+                country_trends=self.country_trends
             )
      
       

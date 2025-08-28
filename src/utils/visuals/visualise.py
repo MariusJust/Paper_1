@@ -48,48 +48,6 @@ def create_pred_input(mc, mean_T, std_T, mean_P, std_P):
 
 
 
-# def create_pred_input(mc):
-#     """
-#     Create the input for predictions by standardizing temperature and precipitation.
-    
-#     Parameters:
-#     - None
-#     Returns:
-#     - pred_input: Standardized input for predictions.
-#     """
-#     # Standardize temperature and precipitation
-#     temp_vals = np.linspace(0, 30, 30)  # 30 points from 0 to 30
-#     precip_vals = np.linspace(12.03731002, 5435.30011, 30)  #30 points between the min and max of the precipitation data
-
-#     # 2. Create a meshgrid of temperature (T) and precipitation (P)
-#     T, P = np.meshgrid(temp_vals, precip_vals)  # Each shape: (30, 30)
-
-#     # 3. Standardize T and P according to your known mean/std
-#     #    (adjust to the same approach you used in your code for standardization).
-#     if mc:
-       
-#         P=P/1000
-#         P_std=(P-1094.316/1000)/678.313/1000
-#     else:
-#          P_std = (P - 1094.316) / 678.313  # example standardization if that matches your data
-
-#     T_std=(T - 18.05) / 7.10
-   
-#     # 4. Reshape for model input
-#     flat_T_std = T_std.ravel()  # shape (30*30,)
-#     flat_P_std = P_std.ravel()  # shape (30*30,)
-
-#     # Concatenate temperature & precipitation along last dimension
-#     pred_input = np.stack([flat_T_std, flat_P_std], axis=-1)  # shape (900, 2)
-    
-
-#     # We might need (1, 1, 900, 2):
-#     pred_input = pred_input.reshape((1, 1, -1, 2))  # shape (1,1,900,2)
-    
-   
-
-#     return pred_input, T, P
-
 
 ##############################################  Compare fixed effects with benchmark models  ########################################################
 

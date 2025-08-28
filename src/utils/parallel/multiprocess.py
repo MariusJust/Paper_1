@@ -30,8 +30,8 @@ class Multiprocess:
         self.n_countries = cfg.n_countries
         self.time_periods = cfg.time_periods
         self.data = data
-        
-        
+        self.country_trends = cfg.country_trends
+
     def run(self):
         if self.Model_selection == 'CV':
            build_arg_list_cv(self)
@@ -67,7 +67,7 @@ class Multiprocess:
                     cv_error, node = result
                     self.storage[node] = [cv_error]
                 else:
-                    bic,aic,node,_,_ = result
+                    bic,aic,node = result
                     self.storage[node] = [bic,aic]
 
             pool.terminate()
@@ -84,6 +84,7 @@ class Multiprocess:
         else:  
             from models.global_model.information_criteria.run_experiment_ic import MainLoop as MainLoop
             model_loop = MainLoop(*args)
-            return model_loop.run_experiment()
+            BIC, AIC, node,_,_=  model_loop.run_experiment()
+            return BIC, AIC, node
 
  

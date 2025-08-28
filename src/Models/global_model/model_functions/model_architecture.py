@@ -1,7 +1,7 @@
 from tensorflow.keras.layers import Input, Add, concatenate
 from tensorflow.keras import Model
 import tensorflow as tf
-from models.global_model.model_functions.helper_functions import Create_dummies, create_fixed_effects, Vectorize, Count_params, Matrixize, create_hidden_layers, create_output_layer, Visual_model, prediction_model
+from models.global_model.model_functions.helper_functions import Dummies, create_fixed_effects, Vectorize, Count_params, Matrixize, create_hidden_layers, create_output_layer, Visual_model, prediction_model, create_country_trends
 
 def SetupGlobalModel(self):
     
@@ -27,10 +27,20 @@ def SetupGlobalModel(self):
                                                     
 
     # Creating dummies
-    Delta1, Delta2 = Create_dummies(self, input_temp, self.N['global'], self.T, self.time_periods_na['global'])
+    if self.country_trends:
+       dummies_layer = Dummies(self.N['global'], self.T, self.time_periods_na['global'], country_trends=True)
+       Delta1, Delta2, linear_trend, quadratic_trend = dummies_layer(input_temp)
+       
+       #the layer
+       linear_country_trend, quadratic_country_trend, self.linear_trend_layer, self.quadratic_trend_layer = create_country_trends(self, linear_trend, quadratic_trend)
+
+    else:
+       dummies_layer = Dummies(self.N['global'], self.T, self.time_periods_na['global'], country_trends=False)
+       Delta1, Delta2 = dummies_layer(input_temp)
 
     # Creating fixed effects
     country_FE, time_FE, self.country_FE_layer, self.time_FE_layer= create_fixed_effects(self, Delta1, Delta2)
+    
 
 
     # Vectorize the inputs
@@ -46,9 +56,12 @@ def SetupGlobalModel(self):
  
     # Creating temporary output layer, without fixed effects
     output_tmp = create_output_layer(self, input_last)
-
+    
+    if self.country_trends:
     # Adding fixed effects
-    output = Add()([time_FE, country_FE, output_tmp])
+      output = Add()([time_FE, country_FE, linear_country_trend, quadratic_country_trend, output_tmp])
+    else:
+       output = Add()([time_FE, country_FE, output_tmp])
 
     # Creating the final output matrix with the correct dimensions
     output_matrix = Matrixize(N=self.N['global'], T=self.T, noObs=self.noObs['global'], mask=self.Mask)(output)
@@ -56,7 +69,7 @@ def SetupGlobalModel(self):
     # Compiling the model
     self.model = Model(inputs=[input_temp, input_precip], outputs=output_matrix)
 
-   
+  
 
     # Counting number of parameters
 

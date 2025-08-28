@@ -35,7 +35,7 @@ def Prepare(data,  n_countries, time_periods):
     
         std = np.nanstd(pivot_data.values)
         
-        #we do not standardise the growth data 
+#we do not standardise the growth data 
         if var is growth:
             dict['global'] = pivot_data
         else:
@@ -56,6 +56,8 @@ def load_data(model_selection, n_countries, time_periods, n_splits=None, growth=
         if growth is None:
             data = pd.read_excel('data/MainData.xlsx')
             growth, precip, temp = Prepare(data, n_countries, time_periods)
+            panel_split = PanelSplit(periods=growth['global'].index, n_splits=n_splits, gap=0, test_size=1)
+
             return growth, precip, temp, panel_split
         else: #mc case
             # Create a PanelSplit object for cross-validation

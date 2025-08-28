@@ -3,9 +3,7 @@ import tensorflow as tf
 import pandas as pd 
 
 
-from .helper_functions import initialize_parameters, Preprocess, Vectorize, Create_dummies, create_fixed_effects, create_hidden_layer, create_output_layer, Count_params, Matrixize, individual_loss
-from tensorflow.keras.layers import Input, Add, concatenate
-from tensorflow.keras import Model
+from .helper_functions import initialize_parameters, Preprocess, individual_loss
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from .model_architecture import SetupGlobalModel
@@ -15,7 +13,7 @@ class MultivariateModel:
     Class implementing the static neural network model.
     """
 
-    def __init__(self, node, x_train, y_train, dropout, penalty):
+    def __init__(self, node, x_train, y_train, dropout, penalty, country_trends):
         """
         Instantiating class.
 
@@ -34,6 +32,7 @@ class MultivariateModel:
         self.dropout = dropout
         self.penalty = penalty
         self._cache = {}
+        self.country_trends = country_trends
         
 
 
@@ -144,10 +143,7 @@ class MultivariateModel:
         # Store the global predictions and actuals for comparison
         in_sample_pred_global = pred_vector
         in_sample_global = train_vector
-        mean_growth = np.nanmean(np.reshape(np.array(in_sample_global), (-1)))
     
-        SST = np.nansum((in_sample_global- mean_growth) ** 2)
-        SSR = np.nansum((in_sample_pred_global - mean_growth) ** 2)
         SSE = np.nansum((in_sample_global - in_sample_pred_global) ** 2)
 
         MSE = SSE / self.noObs['global']
@@ -157,7 +153,7 @@ class MultivariateModel:
 
         return in_sample_preds
 
-
+    
         
     def predict(self, temperature_array, precip_array, idx=False):
         """

@@ -2,17 +2,17 @@ from utils.miscelaneous.warnings import turn_off_warnings
 turn_off_warnings()
 
 import hydra
-import tensorflow as tf
+
 import os
 import ast
 import multiprocessing as mp
 from datetime import datetime
 from omegaconf import OmegaConf, DictConfig
-from simulations.simulation_functions import Pivot, simulate, illustrate_synthetic_data
+from simulations.simulation_functions import  simulate, illustrate_synthetic_data, Pivot
 from utils.parallel import MultiprocessingMC, Multiprocess
 from utils.miscelaneous import save_yaml, save_numpy
 
-def mc_loop(cfg, spec):
+def mc_loop(cfg, spec, model):
     
 ###########################################################################################################################################################
 #we employ the following simulation procedure: 
@@ -26,51 +26,65 @@ def mc_loop(cfg, spec):
 
    
 ## step 1
-    nodes = [ast.literal_eval(s) for s in cfg.instance.nodes_list]
-    print(f"[DEBUG] spec={spec!r}, nodes_list has {len(nodes)} entries: {nodes}", flush=True)
-    
-    train_kwargs = {
-    "cfg": cfg.instance,
-    "data": simulate(
-        seed=cfg.mc.base_seed,
-        n_countries=196,
-        n_years=63,
-        specification=spec,
-        add_noise=True,
-    ),
-    }
-    
-    #illustrate the data
-    # import numpy as np
-    # growth, precip, temp = Pivot(train_kwargs["data"])
-    # illustrate_synthetic_data(np.array(temp['global']).flatten(), np.array(precip['global']).flatten(),np.array( growth['global']).flatten())
 
+    if model == "NN":
+        print(f"\n=== Running initial training loop ===")
+        nodes = [ast.literal_eval(s) for s in cfg.instance.nodes_list]
+        
+        train_kwargs = {
+        "cfg": cfg.instance,
+        "data": simulate(
+            seed=cfg.mc.base_seed,
+            n_countries=196,
+            n_years=63,
+            specification=spec,
+            add_noise=True,
+            sample_data=True
+        ),
+        }
+        
     
-## step 2
-    worker = Multiprocess(**train_kwargs)
-    results = worker.run()
-    if cfg.instance.model_selection == "IC":
-        # Select the best node based on BIC
-        best_node = min(results, key=lambda k: results[k][0])
-    else:
-        # Select the best node based on cross validation error
-        best_node= min(results, key=lambda k: results[k])
-       
-    best_node_idx=nodes.index(best_node)
- 
-    
-    print(f"\n=== Running {cfg.mc.reps} Monte Carlo itterations for node {best_node} ===")
+        
+        # #illustrate the data
+        # import numpy as np
+        # growth, precip, temp = Pivot(train_kwargs["data"])
+        # illustrate_synthetic_data(np.array(temp['global']).flatten(), np.array(precip['global']).flatten(),np.array( growth['global']).flatten())
 
-    
-## step 3
-    worker_mc = MultiprocessingMC(
-        node_index=best_node_idx,
-        nodes_list=nodes,
-        cfg=cfg,
-        specification=spec,
-    )
-    all_surfaces, country_FE = worker_mc.run() 
-    
+        
+    ## step 2 - Only done for the neural network
+        worker = Multiprocess(**train_kwargs)
+        results = worker.run()
+        if cfg.instance.model_selection == "IC":
+            # Select the best node based on BIC
+            best_node = min(results, key=lambda k: results[k][0])
+        else:
+            # Select the best node based on cross validation error
+            best_node= min(results, key=lambda k: results[k])
+        
+        best_node_idx=nodes.index(best_node)
+        
+        print(f"\n=== Running {cfg.mc.reps} Monte Carlo itterations for model {model} with best node: {best_node} ===")
+    ## step 3
+        worker_mc = MultiprocessingMC(
+            cfg=cfg,
+            specification=spec,
+            model=model,
+            node_index=best_node_idx,
+            nodes_list=nodes
+        )
+        all_surfaces, country_FE = worker_mc.run()
+
+    else: #benchmark case
+        print(f"\n=== Running {cfg.mc.reps} Monte Carlo itterations for model {model} ===")
+        worker_mc = MultiprocessingMC(
+            cfg=cfg,
+            specification=spec,
+            model=model
+        )
+        
+        all_surfaces, _ = worker_mc.run()
+
+
 
 ## step 4    
     # growth, precip, temp = Pivot(train_kwargs["data"])
@@ -82,14 +96,15 @@ def mc_loop(cfg, spec):
     # ensemble_model.model.set_weights(avg_weights)
     
     # Save the model weights
-    
-    path = f"results/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/_avg_surface.np"
+
+    path = f"results/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/surfaces.np"
     save_numpy(path, all_surfaces)
+    
+    if model=="NN":
+        path=f"results/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/_country_FE.np"
+        save_numpy(path, country_FE)
 
-    path=f"results/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/_country_FE.np"
-    save_numpy(path, country_FE)
-
-    path= f"results/config/MonteCarlo/{spec}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
+    path= f"results/config/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
     save_yaml(path, OmegaConf.to_yaml(cfg))
         
 
@@ -103,25 +118,28 @@ if __name__ == "__main__":
     
     @hydra.main(config_path="../../config", config_name="config_mc", version_base="1.2")
     def run_mc(cfg: DictConfig):
+        
+        import tensorflow as tf
         # unpack configs
         specs      = cfg.mc.specifications
-        breakpoints= cfg.mc.breakpoints
-
-        for spec in specs:
-            if not os.path.exists(f"results/MonteCarlo"):
-                raise FileNotFoundError("The directory for saving model weights does not exist.")
+        models     = cfg.mc.models
         
+        for model in models:
 
-            print(f"\n======== Running Monte Carlo for specification: {spec} ============")
+            for spec in specs:
+                if not os.path.exists(f"results/MonteCarlo"):
+                    raise FileNotFoundError("The directory for saving model weights does not exist.")
             
-            print(f"\n=== Running initial training loop ===")
-    
-            tf.keras.backend.clear_session()
+                print(f"\n======== Running Monte Carlo for {spec} data using model: {model} ============")
+                
         
-            # Hand off to loop
-            mc_loop(cfg, spec)
+                tf.keras.backend.clear_session()
             
-        print("\nAll specifications processed.")
+                # Hand off to loop
+                mc_loop(cfg, spec, model)
+            
+            print("\nAll specifications processed.")
+        print("\nMonte Carlo simulations completed for all models.")
     run_mc()
     
 

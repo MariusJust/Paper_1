@@ -57,7 +57,7 @@ def train_on_full_sample(self):
     # Save the final model weights.
     if self.data is None:
         model_full.save_params('results/Model Parameters/CV/' + str(self.node) + '.weights.h5')
-    else:
-        self.model_full = model_full  # Store the model instance for later use in the Monte Carlo simulation
+   
+    self.model_full = model_full 
 
-    return None
+   

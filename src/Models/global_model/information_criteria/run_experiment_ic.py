@@ -9,7 +9,7 @@ from models import MultivariateModelGlobal as Model
 turn_off_warnings()
 
 class MainLoop:
-    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_countries, time_periods, penalty, data=None):
+    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_countries, time_periods, penalty, country_trends, data=None):
         self.node = node
         self.no_inits = no_inits
         self.seed_value = seed_value
@@ -23,6 +23,7 @@ class MainLoop:
         self.models_tmp = np.zeros(no_inits, dtype=object)
         self.BIC_list = np.zeros(no_inits)
         self.AIC_list = np.zeros(no_inits)
+        self.country_trends = country_trends
         
         #build a factory for the model, so we don't have to re-initialize the model each time
         self.factory = Model(
@@ -30,13 +31,14 @@ class MainLoop:
             x_train=None,     
             y_train=None,
             dropout=self.dropout,
-            penalty=self.penalty
+            penalty=self.penalty,
+            country_trends=self.country_trends
         )
         
         
         # Load data
         if data is not None: #ie we are running a Monte Carlo experiment
-            from simulations.simulation_functions.Simulate_data import Pivot
+            from simulations.simulation_functions import Pivot
             self.growth, self.precip, self.temp = Pivot(data)
         else:   
             self.growth, self.precip, self.temp = load_data('IC', n_countries, time_periods)
@@ -74,7 +76,6 @@ class MainLoop:
 
         #only save the model parameters if the data is the real data, and not simulated data
         if self.data is None:
-
             self.models_tmp[best_idx_BIC].save_params('results/Model Parameters/BIC/' +  str(self.node) + '.weights.h5')
             self.models_tmp[best_idx_AIC].save_params('results/Model Parameters/AIC/'  +  str(self.node) + '.weights.h5')
             return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node

@@ -14,17 +14,15 @@ def main(cfg: DictConfig):
     results=worker.run()
 
     # Save results 
-    path=f"results/metrics/{inst.Model_selection}/{datetime.today().strftime('%Y-%m-%d')}/results.npy"
+    path=f"results/metrics/{inst.model_selection}/{datetime.today().strftime('%Y-%m-%d')}/results.npy"
     save_numpy(path, results)
     
     # Save the configuration
-    path = f"results/config/{inst.Model_selection}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
+    path = f"results/config/{inst.model_selection}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
     save_yaml(path, OmegaConf.to_yaml(cfg.instance, sort_keys=False))
     
     # return results
     return None
 
 if __name__ == "__main__":    main()
-
-
 
