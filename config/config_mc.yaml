@@ -1,0 +1,33 @@
+
+defaults:
+  - _self_
+  - config       # pulls in config/config.yaml
+
+# Monte Carlo–specific block
+mc:
+  reps:         7
+  base_seed:    0
+  specifications:
+    - linear
+    - Burke
+    - Leirvik
+    - Trig
+
+  models:
+    - NN
+    - Quadratic
+    - Interactive
+
+  breakpoints:
+    - 2
+
+instance:
+  model_selection: 'IC'
+
+hydra:
+  hydra_logging:
+    level: DISABLED
+  job_logging:
+    level: WARNING
+  verbose: false
+
