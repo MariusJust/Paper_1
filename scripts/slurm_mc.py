@@ -10,7 +10,7 @@ def job_func(job_name):
     s += '#SBATCH --nodes=1\n'
     s += '#SBATCH --time=90:00:00\n'   # change estimated time
     s += '#SBATCH --ntasks-per-node=1\n'
-    s += '#SBATCH --cpus-per-task=55\n'
+    s += '#SBATCH --cpus-per-task=57\n'
     s += 'cd $SLURM_SUBMIT_DIR\n'
     s += 'export PYTHONPATH=$SLURM_SUBMIT_DIR/src:$PYTHONPATH\n'
      # ─── Export TF/CUDA vars here ─────────────────────────────────────

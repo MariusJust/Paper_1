@@ -13,7 +13,7 @@ import plotly.io as pio
 
 
 
-def create_pred_input(mc, mean_T, std_T, mean_P, std_P):
+def create_pred_input(mc, mean_T, std_T, mean_P, std_P, time_periods=None):
    
     """
     Create the input for predictions by standardizing temperature and precipitation.
@@ -35,16 +35,31 @@ def create_pred_input(mc, mean_T, std_T, mean_P, std_P):
     else:
         precip_vals= np.linspace(12.03731002, 5435.30011, 90)
    
-    T, P = np.meshgrid(temp_vals, precip_vals)  
-    P_std=(P-mean_P)/std_P  
-    T_std=(T - mean_T) / std_T
-   
-    flat_T_std = T_std.ravel()  
-    flat_P_std = P_std.ravel()  
 
-    pred_input = np.stack([flat_T_std, flat_P_std], axis=-1)  # shape (900, 2)
+    if time_periods is not None:
+        
+        T, P, time = np.meshgrid(temp_vals, precip_vals, np.arange(0,time_periods+1))  
+        P_std=(P-mean_P)/std_P  
+        T_std=(T - mean_T) / std_T
+    
+        flat_T_std = T_std.ravel()  
+        flat_P_std = P_std.ravel()  
+        time_input=time.ravel()
+        
+        pred_input = np.stack([flat_T_std, flat_P_std, time_input], axis=-1)  # shape (900, 3)
+        return pred_input.reshape((1, 1, -1, 3)), T, P
+    else:
+        
+        T, P = np.meshgrid(temp_vals, precip_vals)  
+        P_std=(P-mean_P)/std_P  
+        T_std=(T - mean_T) / std_T
+    
+        flat_T_std = T_std.ravel()  
+        flat_P_std = P_std.ravel()  
+        
 
-    return pred_input.reshape((1, 1, -1, 2)), T, P
+        pred_input = np.stack([flat_T_std, flat_P_std], axis=-1)  # shape (900, 2)
+        return pred_input.reshape((1, 1, -1, 2)), T, P
 
 
 

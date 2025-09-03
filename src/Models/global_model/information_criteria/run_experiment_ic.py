@@ -5,11 +5,12 @@ import random
 from utils.miscelaneous.warnings import turn_off_warnings
 from models.global_model.model_functions.helper_functions import load_data
 from models import MultivariateModelGlobal as Model
+import datetime
 
 turn_off_warnings()
 
 class MainLoop:
-    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_countries, time_periods, penalty, country_trends, data=None):
+    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_countries, time_periods, penalty, country_trends, dynamic_model, data=None):
         self.node = node
         self.no_inits = no_inits
         self.seed_value = seed_value
@@ -24,6 +25,7 @@ class MainLoop:
         self.BIC_list = np.zeros(no_inits)
         self.AIC_list = np.zeros(no_inits)
         self.country_trends = country_trends
+        self.dynamic_model = dynamic_model
         
         #build a factory for the model, so we don't have to re-initialize the model each time
         self.factory = Model(
@@ -32,7 +34,8 @@ class MainLoop:
             y_train=None,
             dropout=self.dropout,
             penalty=self.penalty,
-            country_trends=self.country_trends
+            country_trends=self.country_trends,
+            dynamic_model=self.dynamic_model
         )
         
         
@@ -76,8 +79,7 @@ class MainLoop:
 
         #only save the model parameters if the data is the real data, and not simulated data
         if self.data is None:
-            self.models_tmp[best_idx_BIC].save_params('results/Model Parameters/BIC/' +  str(self.node) + '.weights.h5')
-            self.models_tmp[best_idx_AIC].save_params('results/Model Parameters/AIC/'  +  str(self.node) + '.weights.h5')
+            self.models_tmp[best_idx_BIC].save_params('results/Model Parameters/IC/' + datetime.today().strftime('%Y-%m-%d') + '/' + str(self.node) + '.weights.h5')
             return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node
         else: #Monte carlo simulation
             best_surface=self.models_tmp[best_idx_BIC].model_visual

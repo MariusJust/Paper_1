@@ -5,18 +5,18 @@ defaults:
 
 # Monte Carlo–specific block
 mc:
-  reps:         7
+  reps:         100
   base_seed:    0
   specifications:
-    - linear
+    # - linear
     - Burke
     - Leirvik
-    - Trig
+    # - Trig
 
   models:
     - NN
-    - Quadratic
-    - Interactive
+    # - Quadratic
+    # - Interactive
 
   breakpoints:
     - 2

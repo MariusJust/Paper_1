@@ -31,6 +31,7 @@ class Multiprocess:
         self.time_periods = cfg.time_periods
         self.data = data
         self.country_trends = cfg.country_trends
+        self.dynamic_model = cfg.dynamic_model
 
     def run(self):
         if self.Model_selection == 'CV':
@@ -84,7 +85,11 @@ class Multiprocess:
         else:  
             from models.global_model.information_criteria.run_experiment_ic import MainLoop as MainLoop
             model_loop = MainLoop(*args)
-            BIC, AIC, node,_,_=  model_loop.run_experiment()
+            if args[-1] is not None:
+                # Monte Carlo experiment
+                BIC, AIC, node, _, _ = model_loop.run_experiment()
+            else:
+                BIC, AIC, node= model_loop.run_experiment()
             return BIC, AIC, node
 
  

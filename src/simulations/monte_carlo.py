@@ -30,24 +30,28 @@ def mc_loop(cfg, spec, model):
     if model == "NN":
         print(f"\n=== Running initial training loop ===")
         nodes = [ast.literal_eval(s) for s in cfg.instance.nodes_list]
-        
+    
+    
         train_kwargs = {
         "cfg": cfg.instance,
         "data": simulate(
-            seed=cfg.mc.base_seed,
+            seed= cfg.mc.base_seed,
             n_countries=196,
             n_years=63,
             specification=spec,
             add_noise=True,
-            sample_data=True
+            sample_data=True,
+            dynamic=cfg.instance.dynamic_model
         ),
         }
         
     
         
-        # #illustrate the data
+        #illustrate the data
         # import numpy as np
-        # growth, precip, temp = Pivot(train_kwargs["data"])
+        # growth, precip, temp = Pivot(train_kwargs["data"][train_kwargs["data"]["Year"]==2020])
+        
+        
         # illustrate_synthetic_data(np.array(temp['global']).flatten(), np.array(precip['global']).flatten(),np.array( growth['global']).flatten())
 
         
@@ -96,15 +100,20 @@ def mc_loop(cfg, spec, model):
     # ensemble_model.model.set_weights(avg_weights)
     
     # Save the model weights
+    if cfg.instance.dynamic_model: 
+        type="Dynamic"
+    else:
+        type="Static"
 
-    path = f"results/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/surfaces.np"
+
+    path = f"results/MonteCarlo/{type}/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/surfaces.np"
     save_numpy(path, all_surfaces)
     
     if model=="NN":
-        path=f"results/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/_country_FE.np"
+        path=f"results/MonteCarlo/{type}/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/_country_FE.np"
         save_numpy(path, country_FE)
 
-    path= f"results/config/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
+    path= f"results/config/MonteCarlo/{type}{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
     save_yaml(path, OmegaConf.to_yaml(cfg))
         
 

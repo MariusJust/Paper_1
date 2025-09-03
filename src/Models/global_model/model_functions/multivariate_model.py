@@ -2,7 +2,6 @@ import numpy as np
 import tensorflow as tf
 import pandas as pd 
 
-
 from .helper_functions import initialize_parameters, Preprocess, individual_loss
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
@@ -13,7 +12,7 @@ class MultivariateModel:
     Class implementing the static neural network model.
     """
 
-    def __init__(self, node, x_train, y_train, dropout, penalty, country_trends):
+    def __init__(self, node, x_train, y_train, dropout, penalty, country_trends, dynamic_model):
         """
         Instantiating class.
 
@@ -33,6 +32,7 @@ class MultivariateModel:
         self.penalty = penalty
         self._cache = {}
         self.country_trends = country_trends
+        self.dynamic_model = dynamic_model
         
 
 
