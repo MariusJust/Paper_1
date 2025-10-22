@@ -11,38 +11,34 @@ def SetupGlobalModel(self):
     """
     
     
-    # Creating input layers
     # The input shape is (T, N), where T is the time period and N is the number of countries
-    input_precip =Input(shape=(self.T, int(self.N['global'])))
-    input_temp = Input(shape=(self.T, int(self.N['global'])))
+    input_precip = Input(shape=(None, int(self.N['global'])), name='precip_input')
+    input_temp   = Input(shape=(None, int(self.N['global'])), name='temp_input')
 
-
+    if self.x_val is not None:
+        self.input_data_temp_val = tf.reshape(tf.convert_to_tensor(self.x_val_transf[0]['global']), (1, self.holdout, self.N['global']))
+        self.input_data_precip_val = tf.reshape(tf.convert_to_tensor(self.x_val_transf[1]['global']), (1, self.holdout, self.N['global']))
+        self.targets_val = tf.reshape(tf.convert_to_tensor(self.y_val_transf['global']), (1, self.holdout, self.N['global']))
+        
     self.input_data_temp = tf.reshape(tf.convert_to_tensor(self.x_train_transf[0]['global']), (1, self.T, self.N['global']))
-    self.input_data_precip=tf.reshape(tf.convert_to_tensor(self.x_train_transf[1]['global']), (1, self.T, self.N['global']))
-    #creates a target tensor of dimension (1, T, N) where the first dimension is the batch size, the second dimension is the time period, and the third dimension is the country. variable is the growth rate
+    self.input_data_precip = tf.reshape(tf.convert_to_tensor(self.x_train_transf[1]['global']), (1, self.T, self.N['global']))    
+    # creates a target tensor of dimension (1, T, N) where the first dimension is the batch size, the second dimension is the time period, and the third dimension is the country. variable is the growth rate
     self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T, self.N['global']))
    
     self.Mask = tf.reshape(
     tf.convert_to_tensor(self.mask['global']),
                         (1, self.T, self.N['global']) )
-    
+
     self.time_periods = np.arange(1, self.T+1, 1)
-    
-                            
-    # If country trends
-    if self.country_trends:
-       dummies_layer = Dummies(self.N['global'], self.T, self.time_periods_na['global'], country_trends=True)
-       Delta1, Delta2, linear_trend, quadratic_trend = dummies_layer(input_temp)
-       
-       linear_country_trend, quadratic_country_trend, self.linear_trend_layer, self.quadratic_trend_layer = create_country_trends(self, linear_trend, quadratic_trend)
 
-    else: 
-       dummies_layer = Dummies(self.N['global'], self.T, self.time_periods_na['global'], country_trends=False)
-       Delta1, Delta2 = dummies_layer(input_temp)
+    #when we are apllying within transformation, we do not include country trends, instead we use the P matrix
+    if not self.within_transform:
+      dummies_layer = Dummies(self.N['global'], self.T, self.time_periods_na['global'], country_trends=False)
+      Delta1, Delta2 = dummies_layer(input_temp)
 
-    # Creating fixed effects
-    country_FE, time_FE, self.country_FE_layer, self.time_FE_layer= create_fixed_effects(self, Delta1, Delta2)
-    
+      # Creating fixed effects
+      country_FE, time_FE, self.country_FE_layer, self.time_FE_layer = create_fixed_effects(self, Delta1, Delta2)
+      
       # Vectorize the inputs
     temp_input=Vectorize(self.N, 'temp')(input_temp)
 
@@ -53,24 +49,24 @@ def SetupGlobalModel(self):
       input_first= concatenate([temp_input, precip_input, time_input], axis=2)
     else:
       input_first= concatenate([temp_input, precip_input], axis=2)
-    
-           
+  
     # neural network model
     input_last=create_hidden_layers(self, input_first)
  
     # Creating temporary output layer, without fixed effects
     output_tmp = create_output_layer(self, input_last)
     
-    if self.dynamic_model: 
-      output = Add()([country_FE, output_tmp])
+    #when we use the within transformation, we do not add fixed effects
+    if self.within_transform:
+      output = output_tmp
     else:
-      if self.country_trends:
-    # Adding fixed effects
-       output = Add()([time_FE, country_FE, linear_country_trend, quadratic_country_trend, output_tmp])
+      if self.dynamic_model: 
+        output = Add()([country_FE, output_tmp])
       else:
-       output = Add()([time_FE, country_FE, output_tmp])
+        output = Add()([time_FE, country_FE, output_tmp])
+      
 
-    # Creating t he final output matrix with the correct dimensions
+    # Creating the final output matrix with the correct dimensions
     output_matrix = Matrixize(N=self.N['global'], T=self.T, noObs=self.noObs['global'], mask=self.Mask)(output)
 
     # Compiling the model

@@ -15,9 +15,12 @@ class Matrixize(Layer):
         where = ~self.mask
         
         indices = tf.cast(tf.where(where), tf.int32)
-        scatter = tf.scatter_nd(indices, tf.reshape(x, (-1,)), shape=tf.shape(self.mask))
-        scatter = tf.cast(scatter, dtype=np.float64)
 
+        updates_obs = tf.reshape(x, (-1,))
+        
+        scatter = tf.scatter_nd(indices, updates_obs, shape=tf.shape(self.mask))
+        scatter = tf.cast(scatter, dtype=np.float64)
+        
         indices = tf.cast(tf.where(~where), tf.int32)
         x_nan = tf.ones(self.N * self.T - self.noObs) * np.nan
         scatter_nan = tf.scatter_nd(indices, x_nan, shape=tf.shape(self.mask))

@@ -4,9 +4,10 @@ from tensorflow.keras import regularizers
 
 def create_hidden_layers(self, input_first):
     
+    
     self.hidden_1 = create_hidden_layer(self, self.node[0])
     hidden_1 = self.hidden_1(input_first)
-    
+        
     # Handle depth and subsequent layers
     if self.Depth > 1:
         self.hidden_2 = create_hidden_layer(self, self.node[1])

@@ -4,16 +4,15 @@ import random
 from utils.miscelaneous.warnings import turn_off_warnings
 from models.global_model.model_functions.helper_functions import load_data
 from models import MultivariateModelGlobal as Model
-from models.global_model.cross_validation import train_itteration, test_itteration, train_on_full_sample
-
-
+from models.global_model.cross_validation import train_itteration, test_itteration, train_on_full_sample, test_dynamic
+from sklearn.linear_model import LinearRegression
 
 class MainLoop:
     """
     Class implementing the cross-validation loop for model training and evaluation.
     """
 
-    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, cv_approach, penalty, n_countries, time_periods, country_trends, data=None):
+    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_splits, cv_approach, penalty, n_countries, time_periods, country_trends, dynamic_model, data=None):
          
         turn_off_warnings()
 
@@ -45,6 +44,7 @@ class MainLoop:
         self.penalty = penalty
         self.data = data
         self.country_trends=country_trends
+        self.dynamic_model=dynamic_model
     
        # make a factory object to store pycache and avoid re-initializing the model each time
         self.factory = Model(
@@ -53,7 +53,8 @@ class MainLoop:
                 y_train=None,
                 dropout=self.dropout,
                 penalty=self.penalty,
-                country_trends=self.country_trends
+                country_trends=self.country_trends,
+                dynamic_model=self.dynamic_model
             )
      
       
@@ -66,13 +67,16 @@ class MainLoop:
         for j in range(self.no_inits):
             self.current_seed = self.seed_value + j  
             
+            if self.dynamic_model:
+                self.cv_dynamic(j)
+            
             if self.cv_approach=='full':
                 self.cv_full(j)
              
-            elif self.cv_approach=='last_period':
-                self.cv_last_period(j)
+            elif self.cv_approach=='trend':
+                self.trend_time_fe(j)
             else:
-                raise ValueError("cv_approach must be either 'full' or 'last_period'")
+                raise ValueError("cv_approach must be either 'full' or 'trend'")
             
         self.best_init_idx = int(np.argmin(self.cv_errors_inits))
         self.best_cv_error = self.cv_errors_inits[self.best_init_idx]
@@ -121,12 +125,13 @@ class MainLoop:
         return None
     
 
-    def cv_last_period(self, j):
+    def trend_time_fe(self, j):
          
         """
         cross validation that does the following:
-         #train on the first T-1 periods and save the fixed effects from period T-1
-         #for each test split (period T), predict using the fixed effects estimate from period T-1 and the model trained on the training set
+        #1. fit on t-1 and get the time fixed effects from period 1:t-1
+        #2. Make a linear regression of the time fixed effects on time to get the trend
+        #3. for each test split, predict using the fixed effects estimate from step 1 and the model trained on the training set
         """
       
         errors_j = []
@@ -135,7 +140,20 @@ class MainLoop:
                 self.models_tmp[j]=train_itteration(self, train_idx)
                 
                 country_FE = self.models_tmp[j].alpha
-                time_FE = np.array(self.models_tmp[j].beta)[-1]
+                time_FE = np.array(self.models_tmp[j].beta)
+
+                #dependent variable is the number of time periods
+                x = np.arange(len(time_FE)).reshape(-1, 1)+1
+                #independent variable is the estimated time fixed effects
+                y = time_FE
+
+                model = LinearRegression()
+                model.fit(x, y)
+                
+                #we need the time fixed effect for the test period
+                test_int=np.where(test_idx==True)[0][0]
+                time_FE = model.predict(np.array(test_int).reshape(-1, 1))[0]
+        
                 self.model_instance = self.models_tmp[j]
                 
                 mse=test_itteration(self, test_idx, country_FE, time_FE)
@@ -144,7 +162,39 @@ class MainLoop:
                 
         self.cv_errors_inits[j] = np.mean(errors_j)
         
-        return None
+    def cv_dynamic(self, j):
+            """
+            cross validation for the dynamic model that does the following:
+            # 1. fit on the full dataset and save the fixed effects
+            # 2. for each test split, predict using the fixed effects estimate from step 1 and the model trained on the training set
+            """
+            
+            #1 - training on the full dataset and saving the fixed effects
+            train_idx = np.array([True] * len(self.growth['global']))
+            
+            model_full = train_itteration(self, train_idx)
+            self.country_FE = model_full.alpha
+           
+            
+            # 2. - for each split, train the model on the training set. This gives you an estimated neural network. 
+            # Take this and the fixed effects from the full training set and use them to predict on the test set.
+            errors_j = []  
+            for train_idx, test_idx in self.panel_split.split():
+                    
+                    self.models_tmp[j]= train_itteration(self, train_idx)
+                    
+                    self.model_instance = self.models_tmp[j]
+                    
+                    country_FE = self.country_FE
+                    
+                    mse=test_dynamic(self, test_idx, country_FE)
+                    
+                    errors_j.append(mse)
+                    
+            
+            self.cv_errors_inits[j] = np.mean(errors_j)
+        
+            return None
 
 
  

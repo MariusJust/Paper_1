@@ -53,30 +53,44 @@ def simulate(seed, n_countries, n_years, specification, add_noise, sample_data, 
             'temperature': temperature
         })
     else:
-        for country in countries:
-            country_effect = np.random.normal(0, 0.025)
-
-            for year in years:
-                # 6. Draw inputs
-                
-                time_idx =   -0.00013665 *(year.year - 1961)
-                time_idx_sq=0.00001*time_idx**2
-
-                # 7. Centered inputs
-                temp = np.random.uniform(0,30)
-                precip = np.random.uniform(0.012, 5.435)
-
-
-            #cast into dataframe
-            output.append({
-                'CountryCode': country,
-                'Year': year,
-                'delta_logGDP': calculate_growth(specification, temp, precip, country_effect, time_idx, time_idx_sq, add_noise),
-                'precipitation': precip,
-                'temperature': temp
+        if dynamic: 
+            temperature = np.random.uniform(0,30, size=(n_countries * n_years))
+            precipitation = np.random.uniform(0.012, 5.435, size=(n_countries * n_years))
+            years = np.tile(np.array([year.year for year in years]),n_countries)
+            country_effect = np.random.normal(0, 0.025, size=len(temperature))
+            growth = calculate_growth(specification, temperature, precipitation, country_effect, time_idx=None, time_idx_sq=None, add_noise=add_noise, dynamic=dynamic, year=years)
+            final_dataset = pd.DataFrame({
+                'CountryCode': np.repeat(countries, n_years),
+                'Year': years,
+                'delta_logGDP': growth,
+                'precipitation': precipitation,
+                'temperature': temperature
             })
+        else:
+            for country in countries:
+                country_effect = np.random.normal(0, 0.025)
 
-        final_dataset=pd.DataFrame(output)     
+                for year in years:
+                    # 6. Draw inputs
+                    
+                    time_idx =   -0.00013665 *(year.year - 1961)
+                    time_idx_sq=0.00001*time_idx**2
+
+                    # 7. Centered inputs
+                    temp = np.random.uniform(0,30)
+                    precip = np.random.uniform(0.012, 5.435)
+
+
+                    #cast into dataframe
+                    output.append({
+                        'CountryCode': country,
+                        'Year': year,
+                        'delta_logGDP': calculate_growth(specification, temp, precip, country_effect, time_idx, time_idx_sq, add_noise, dynamic=dynamic, year=year),
+                        'precipitation': precip,
+                        'temperature': temp
+                    })
+
+            final_dataset=pd.DataFrame(output)     
     
     return final_dataset
 
@@ -84,10 +98,10 @@ def calculate_growth(specification, temp, precip, country_effect, time_idx, time
      
             if dynamic: 
                 time_periods=year.max()-year.min()+1
-                t=year - year.min() + 1  # t goes from 1 to time_periods
+                t=year - year.min() + 1  # t goes from 1 to time_periods'
+            
                 if specification=='Burke':
-                  
-                   true_y = (
+                    true_y = (
                           (time_periods - t + 1) / time_periods * 0.0127 * temp
                         + (time_periods - t + 1) / time_periods * 0.145 * precip
                         - (t - 1) / time_periods * 0.0005 * temp**2
@@ -180,8 +194,8 @@ def calculate_growth(specification, temp, precip, country_effect, time_idx, time
                 
             return y
         
-        
-  
+
+
 def Pivot(data):
     growth=data[['CountryCode', 'Year', 'delta_logGDP']]
     precip=data[['CountryCode', 'Year', 'precipitation']]
@@ -293,6 +307,35 @@ def Surface(temp, precip, specification, dynamic, time_periods):
                 - 0.005     * temp * np.sin(2 * np.pi * precip / 5.0)   # interaction: wave amplitude depends on temp
                 )
 
+def dynamic_surface(spec, temp_grid, precip_grid, T_total):
+
+    # --- build frames ---
+    for t in range(1, T_total + 1):
+        # growth formula from your function (broadcasting over the 2D grids)
+        if spec=='Leirvik':
+            growth = (
+                (T_total - t + 1) / T_total * 0.0127 * temp_grid
+                + (T_total - t + 1) / T_total * 0.145 * precip_grid
+                - (T_total - t + 1)/T_total * 0.0125 * temp_grid * precip_grid
+                + (t-1)/T_total * 0.00029 * precip_grid * temp_grid**2
+                + (t-1)/T_total * 0.007 * temp_grid * precip_grid**2
+                - (t-1)/T_total * 0.00013 * temp_grid**2 * precip_grid**2
+                - (t - 1) / T_total * 0.0005 * temp_grid**2
+                - (t - 1) / T_total * 0.047 * precip_grid**2
+            )
+        else:
+            growth =(
+                 (T_total - t + 1) / T_total * 0.0127 * temp_grid
+                + (T_total - t + 1) / T_total * 0.145 * precip_grid
+                - (t - 1) / T_total * 0.0005 * temp_grid**2
+                - (t - 1) / T_total * 0.047 * precip_grid**2
+            )
+        z_arr[:, :, t-1] = growth
+        
+    
+
+    return z_arr
+
                 
 def illustrate_synthetic_data(x,y,z):
     
@@ -313,8 +356,7 @@ def illustrate_synthetic_data(x,y,z):
         zaxis_title='Δ logGDP')
     )
 
-    fig.show()
-    return None
+    return fig
 
 def illustate_surface(temp, precip, growth):
     """ Illustrate the 3d surface of growth based on temperature and precipitation.

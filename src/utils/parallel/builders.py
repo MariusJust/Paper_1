@@ -36,6 +36,8 @@ def build_arg_list_ic(self):
         self.penalty,
         self.country_trends,
         self.dynamic_model,
+        self.holdout,
+        self.within_transform,
         self.data
         ) for i in range(len(self.nodes_list))]
             
@@ -68,7 +70,7 @@ def build_arg_list_mc(self):
                     n_years=63,
                     specification=self.specification,
                     add_noise=True,
-                    sample_data=True,
+                    sample_data=self.cfg.mc.sample_data,
                     dynamic=self.cfg.instance.dynamic_model
                 )
             }
@@ -84,7 +86,8 @@ def build_arg_list_mc(self):
                 n_years=63,
                 specification=self.specification,
                 add_noise=True,
-                sample_data=True
+                sample_data=self.cfg.instance.sample_data,
+                dynamic=self.cfg.instance.dynamic_model
             )
         }
         for rep in range(self.cfg.mc.reps)

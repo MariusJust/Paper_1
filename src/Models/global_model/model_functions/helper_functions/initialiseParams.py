@@ -22,18 +22,24 @@ def initialize_parameters(self):
         self.Quant975 = defaultdict(dict)
   
         self.y_train_df = defaultdict(dict)
-
-        self.x_train_transf = defaultdict(dict)
+        self.y_val_df = defaultdict(dict)
         
+        self.x_train_transf = defaultdict(dict)
+        self.x_val_transf = defaultdict(dict)
+
         self.y_train_transf = defaultdict(dict)
+        self.y_val_transf = defaultdict(dict)
+        
         self.mask = defaultdict(dict)
 
-        self.losses = None
+        self.in_sample_loss = None
+        self.holdout_loss = None
         self.epochs = None
         self.params = None
         self.BIC = None
         self.AIC = None
         self.country_FE= None
+        self.P_matrix= None
         
 
         self.model_pred = None

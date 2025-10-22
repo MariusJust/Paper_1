@@ -60,9 +60,11 @@ def load_data(model_selection, n_countries, time_periods, n_splits=None, growth=
 
             return growth, precip, temp, panel_split
         else: #mc case
+            
             # Create a PanelSplit object for cross-validation
             growth_global = growth['global'].reset_index()
             growth_global['Year'] = pd.to_datetime(growth_global['Year'], format='%Y')
+
             panel_split = PanelSplit(periods=growth_global['Year'], n_splits=n_splits, gap=0, test_size=1)
             
             return panel_split
