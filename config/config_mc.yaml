@@ -5,8 +5,9 @@ defaults:
 
 # Monte Carlo–specific block
 mc:
-  reps:         100
+  reps:         1
   base_seed:    0
+  sample_data: True     # whether to sample from real-world data or simulate entirely synthetic data
   specifications:
     # - linear
     - Burke
@@ -22,7 +23,7 @@ mc:
     - 2
 
 instance:
-  model_selection: 'IC'
+  model_selection: 'CV'
 
 hydra:
   hydra_logging:
