@@ -96,10 +96,16 @@ def mc_worker(**payload):
     data = payload.get("data")
     mean_T = np.mean(data["temperature"]); std_T = np.std(data["temperature"])
     mean_P = np.mean(data["precipitation"]); std_P = np.std(data["precipitation"])
+    try:
+        time_periods = payload.get("time_periods")
+    except:
+        time_periods=data['Year'].max().year-data['Year'].min().year +1
+   
     
-    pred_input, T, P = create_pred_input(mc=True, mean_T=mean_T, std_T=std_T, mean_P=mean_P, std_P=std_P)
-    
-    
+    if payload.get("dynamic_model"):
+        pred_input, T, P = create_pred_input(mc=True, mean_T=mean_T, std_T=std_T, mean_P=mean_P, std_P=std_P, time_periods=time_periods)
+    else:
+        pred_input, T, P = create_pred_input(mc=True, mean_T=mean_T, std_T=std_T, mean_P=mean_P, std_P=std_P, time_periods=None)
 
     model = payload.get("model")
     model_selection=payload.get("model_selection")
@@ -111,7 +117,7 @@ def mc_worker(**payload):
             
             allowed = ("node","no_inits","seed_value","lr","min_delta","patience",
                     "verbose","dropout","n_splits","cv_approach","penalty",
-                    "n_countries","time_periods","country_trends","data")
+                    "n_countries","time_periods","country_trends", "dynamic_model","data")
             mainloop_kwargs = {k: payload[k] for k in allowed if k in payload}
 
             main_loop = MainLoop(**mainloop_kwargs)
@@ -122,7 +128,7 @@ def mc_worker(**payload):
             
             allowed = ("node","no_inits","seed_value","lr","min_delta","patience",
                     "verbose","dropout","penalty",
-                    "n_countries","time_periods","country_trends","data")
+                    "n_countries","time_periods","country_trends", "dynamic_model","data")
             
             mainloop_kwargs = {k: payload[k] for k in allowed if k in payload}
 

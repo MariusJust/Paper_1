@@ -5,24 +5,25 @@ defaults:
 
 # Monte Carlo–specific block
 mc:
-  reps:         7
+  reps:         1
   base_seed:    0
+  sample_data: True     # whether to sample from real-world data or simulate entirely synthetic data
   specifications:
-    - linear
+    # - linear
     - Burke
     - Leirvik
-    - Trig
+    # - Trig
 
   models:
     - NN
-    - Quadratic
-    - Interactive
+    # - Quadratic
+    # - Interactive
 
   breakpoints:
     - 2
 
 instance:
-  model_selection: 'IC'
+  model_selection: 'CV'
 
 hydra:
   hydra_logging:

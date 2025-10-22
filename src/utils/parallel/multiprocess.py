@@ -31,6 +31,9 @@ class Multiprocess:
         self.time_periods = cfg.time_periods
         self.data = data
         self.country_trends = cfg.country_trends
+        self.dynamic_model = cfg.dynamic_model
+        self.holdout=cfg.holdout
+        self.within_transform=cfg.within_transform
 
     def run(self):
         if self.Model_selection == 'CV':
@@ -67,8 +70,8 @@ class Multiprocess:
                     cv_error, node = result
                     self.storage[node] = [cv_error]
                 else:
-                    bic,aic,node = result
-                    self.storage[node] = [bic,aic]
+                    holdout_error, bic, aic, node = result
+                    self.storage[node] = [bic,aic, holdout_error]
 
             pool.terminate()
             pool.join()
@@ -84,7 +87,11 @@ class Multiprocess:
         else:  
             from models.global_model.information_criteria.run_experiment_ic import MainLoop as MainLoop
             model_loop = MainLoop(*args)
-            BIC, AIC, node,_,_=  model_loop.run_experiment()
-            return BIC, AIC, node
+            if args[-1] is not None:
+                # Monte Carlo experiment
+                Holdout_error, BIC, AIC, node, _, _ = model_loop.run_experiment()
+            else:
+                Holdout_error, BIC, AIC, node= model_loop.run_experiment()
+            return Holdout_error, BIC, AIC, node
 
  

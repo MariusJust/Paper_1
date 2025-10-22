@@ -2,8 +2,7 @@ import numpy as np
 import tensorflow as tf
 import pandas as pd 
 
-
-from .helper_functions import initialize_parameters, Preprocess, individual_loss
+from .helper_functions import initialize_parameters, Preprocess, individual_loss, HoldoutMonitor, WithinHelper
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from .model_architecture import SetupGlobalModel
@@ -13,7 +12,7 @@ class MultivariateModel:
     Class implementing the static neural network model.
     """
 
-    def __init__(self, node, x_train, y_train, dropout, penalty, country_trends):
+    def __init__(self, node, x_train, y_train, dropout, penalty, country_trends, dynamic_model, within_transform, y_val=None, x_val=None, holdout=0):
         """
         Instantiating class.
 
@@ -33,7 +32,11 @@ class MultivariateModel:
         self.penalty = penalty
         self._cache = {}
         self.country_trends = country_trends
-        
+        self.dynamic_model = dynamic_model
+        self.y_val = y_val
+        self.x_val = x_val
+        self.holdout = holdout
+        self.within_transform = within_transform
 
 
     def _model_definition(self):
@@ -65,21 +68,51 @@ class MultivariateModel:
             * verbose:       verbosity mode for optimization.
         """
       
-       
+        # if self.within_transform:
+        #     self.P_matrix = WithinHelper(self.input_data_temp).calculate_P_matrix()
+        #     self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, P_matrix=self.P_matrix))
+        # else:   
+            
+            
         self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask))
 
-  
+
         
         callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
                                    restore_best_weights=True, verbose=verbose)
                 
                      ]
-        
-        
-        self.model.fit([self.input_data_temp, self.input_data_precip], self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
-        
+  
+        if self.holdout>0 and self.within_transform==True:
+            if self.x_val is not None and self.y_val is not None:
+                
+                x_train = [self.input_data_temp, self.input_data_precip]
+
+                P_train = WithinHelper(self.input_data_temp).calculate_P_matrix()
+                P_val = WithinHelper(self.input_data_temp_val).calculate_P_matrix()
+                
+                # preprojecting the validation and training targets to save memory during training
+                self.y_val_transf = tf.matmul(P_val, self.targets_val)
+
+                holdout_callback=HoldoutMonitor(self, patience=patience, min_delta=min_delta, verbose=verbose, P_matrix_train=P_train, P_matrix_val=P_val)
+                callbacks = [holdout_callback]
+                
+                
+                self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
+                # self.holdout_loss = np.min(self.model.history.history['holdout_mse'])
+            else:
+                x_train = [self.input_data_temp, self.input_data_precip]
+                self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
+                
+        else:
+            x_train = [self.input_data_temp, self.input_data_precip]
+            self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
+           
         #metrics
-        self.losses = self.model.history.history
+        self.in_sample_loss = self.model.history.history['loss']
+        
+        
+        self.best_weights = self.model.get_weights()
         self.epochs = self.model.history.epoch
         self.params = self.model.get_weights()
 

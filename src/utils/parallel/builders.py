@@ -16,6 +16,7 @@ def build_arg_list_cv(self):
         self.n_countries, 
         self.time_periods,
         self.country_trends,
+        self.dynamic_model,
         self.data
     ) for i in range(len(self.nodes_list))]
 
@@ -34,6 +35,9 @@ def build_arg_list_ic(self):
         self.time_periods,
         self.penalty,
         self.country_trends,
+        self.dynamic_model,
+        self.holdout,
+        self.within_transform,
         self.data
         ) for i in range(len(self.nodes_list))]
             
@@ -59,13 +63,15 @@ def build_arg_list_mc(self):
                 "time_periods": self.cfg.instance.time_periods,
                 "country_trends": self.cfg.instance.country_trends,
                 "model_selection":self.cfg.instance.model_selection,
+                "dynamic_model":self.cfg.instance.dynamic_model,
                 "data": simulate(
                     seed=self.cfg.instance.seed_value + rep + 1,
                     n_countries=self.cfg.instance.n_countries,
                     n_years=63,
                     specification=self.specification,
                     add_noise=True,
-                    sample_data=True
+                    sample_data=self.cfg.mc.sample_data,
+                    dynamic=self.cfg.instance.dynamic_model
                 )
             }
             for rep in range(self.cfg.mc.reps)
@@ -80,7 +86,8 @@ def build_arg_list_mc(self):
                 n_years=63,
                 specification=self.specification,
                 add_noise=True,
-                sample_data=True
+                sample_data=self.cfg.instance.sample_data,
+                dynamic=self.cfg.instance.dynamic_model
             )
         }
         for rep in range(self.cfg.mc.reps)

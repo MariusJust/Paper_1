@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
+import numpy as np
 
 
 
@@ -8,16 +9,18 @@ class Dummies(Layer):
     Layer that creates country and time dummies.
     """
 
-    def __init__(self, N, T, time_periods_na, country_trends=False, **kwargs):
+    def __init__(self, N, T, time_periods_na, country_trends=False, within_transform=False, **kwargs):
         super(Dummies, self).__init__(**kwargs)
         self.N = N
         self.T = T
         self.time_periods_na = time_periods_na
         self.noObs = None
         self.country_trends=country_trends
-    
+        self.within_transform = within_transform
+
     def call(self, x):
-       
+    
+    
         where_mat = tf.transpose(tf.math.is_nan(x))
 
         for t in range(self.T):
@@ -52,9 +55,7 @@ class Dummies(Layer):
         Delta_1 = tf.reshape(Delta_1, (1, self.noObs, self.N - 1))
         Delta_2 = tf.reshape(Delta_2, (1, self.noObs, self.T - (self.time_periods_na + 1)))
             
-        if self.country_trends:
-            linear_trend, quadratic_trend=self.country_time_trends(Delta_1, Delta_2)
-            return [Delta_1, Delta_2, linear_trend, quadratic_trend]
+
         return [Delta_1, Delta_2]
 
     def country_time_trends(self, Delta_1, Delta_2):
@@ -78,5 +79,4 @@ class Dummies(Layer):
 
         return linear_all, quad_all
     
-    
-    
+  

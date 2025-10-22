@@ -7,37 +7,51 @@ def Preprocess(self):
     import numpy as np
     import pandas as pd
      
-    compute_x_train(self, self.x_train)      
-    compute_y_train(self, self.y_train)
-    #assuming that missing values are the same in both input variables
+    compute_x_train(self, self.x_train, train=True)      
+    compute_y_train(self, self.y_train, train=True)
     compute_mask(self, self.x_train)
+    
+    if self.x_val is not None and self.y_val is not None:
+        compute_x_train(self, self.x_val, train=False)      
+        compute_y_train(self, self.y_val, train=False)
+        
     
  
   
     
-def compute_x_train(self, x_train):
+def compute_x_train(self, x_train, train=True):
      
         self.individuals['global'] = x_train[0]['global'].columns.values
         self.N['global'] = len(self.individuals['global'])   
                 
         for key, var in enumerate(x_train):
-            self.x_train_transf[key]['global'] =np.array(x_train[key]['global'].copy())
+            if train:
+                self.x_train_transf[key]['global'] =np.array(x_train[key]['global'].copy())
+                
+                global_stats = compute_stats(self.x_train_transf[key]['global'])
+                for key, val in global_stats.items():
+                    getattr(self, key.capitalize())[key]['global'] = val
+            else:
+               self.x_val_transf[key]['global'] = np.array(x_train[key]['global'].copy())
+               
+               global_stats = compute_stats(self.x_val_transf[key]['global'])
+               for key, val in global_stats.items():
+                   getattr(self, key.capitalize())[key]['global'] = val
 
-            global_stats = compute_stats(self.x_train_transf[key]['global'])
-            for key, val in global_stats.items():
-                getattr(self, key.capitalize())[key]['global'] = val
-
-
-
-def compute_y_train(self, y_train):
-
-    self.y_train_transf['global'] = y_train['global'].copy()
-    self.y_train_transf['global'] = np.array(y_train['global'].copy())
-    
-    global_stats = compute_stats(self.y_train_transf['global'])
-    for key, val in global_stats.items():
-        getattr(self, key.capitalize())['global'] = val
-
+def compute_y_train(self, y_train, train=True):
+    if train:
+        self.y_train_df['global'] = y_train['global'].copy()
+        self.y_train_transf['global'] = np.array(y_train['global'].copy())
+        
+        global_stats = compute_stats(self.y_train_transf['global'])
+        for key, val in global_stats.items():
+            getattr(self, key.capitalize())['global'] = val
+    else:
+        self.y_val_df['global'] = y_train['global'].copy()
+        self.y_val_transf['global'] = np.array(y_train['global'].copy())
+        global_stats = compute_stats(self.y_val_transf['global'])
+        for key, val in global_stats.items():
+            getattr(self, key.capitalize())['global'] = val
 
 
 def compute_mask(self, x_train):

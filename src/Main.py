@@ -7,7 +7,7 @@ from datetime import datetime
 @hydra.main(version_base=None, config_path="../config", config_name="config")
 def main(cfg: DictConfig):
   
-    inst=cfg.instance
+    inst=cfg.instance 
     
     # Run parrallel processing passing the configuration
     worker = Multiprocess(inst)

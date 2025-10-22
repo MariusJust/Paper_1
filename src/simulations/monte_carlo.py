@@ -11,7 +11,6 @@ from omegaconf import OmegaConf, DictConfig
 from simulations.simulation_functions import  simulate, illustrate_synthetic_data, Pivot
 from utils.parallel import MultiprocessingMC, Multiprocess
 from utils.miscelaneous import save_yaml, save_numpy
-
 def mc_loop(cfg, spec, model):
     
 ###########################################################################################################################################################
@@ -30,27 +29,42 @@ def mc_loop(cfg, spec, model):
     if model == "NN":
         print(f"\n=== Running initial training loop ===")
         nodes = [ast.literal_eval(s) for s in cfg.instance.nodes_list]
+    
+    
+        # train_kwargs = {
+        # # "cfg": cfg.instance,
+        # "data": simulate(
+        #     seed= 0,
+        #     n_countries=196,
+        #     n_years=63,
+        #     specification='Leirvik',
+        #     add_noise=True,
+        #     sample_data=False,
+        #     dynamic=True)
+        # }
         
         train_kwargs = {
         "cfg": cfg.instance,
         "data": simulate(
-            seed=cfg.mc.base_seed,
-            n_countries=196,
-            n_years=63,
+            seed= cfg.instance.seed_value,
+            n_countries=cfg.instance.n_countries,
+            n_years=cfg.instance.time_periods,
             specification=spec,
             add_noise=True,
-            sample_data=True
-        ),
+            sample_data=cfg.mc.sample_data,
+            dynamic=cfg.instance.dynamic_model)
         }
         
-    
         
-        # #illustrate the data
+        # # #illustrate the data
         # import numpy as np
         # growth, precip, temp = Pivot(train_kwargs["data"])
-        # illustrate_synthetic_data(np.array(temp['global']).flatten(), np.array(precip['global']).flatten(),np.array( growth['global']).flatten())
 
         
+        # year=2023
+        # illustrate_synthetic_data(np.array(temp["global"].loc[[year]]).flatten(), np.array(precip["global"].loc[[year]]).flatten(), np.array(growth["global"].loc[[year]]).flatten())
+
+     
     ## step 2 - Only done for the neural network
         worker = Multiprocess(**train_kwargs)
         results = worker.run()
@@ -96,17 +110,18 @@ def mc_loop(cfg, spec, model):
     # ensemble_model.model.set_weights(avg_weights)
     
     # Save the model weights
+    if cfg.instance.dynamic_model: 
+        type="Dynamic"
+    else:
+        type="Static"
 
-    path = f"results/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/surfaces.np"
+
+    path = f"results/MonteCarlo/{type}/{spec}/{model}/{cfg.instance.model_selection}/{datetime.today().strftime('%Y-%m-%d')}/surfaces_{best_node}.np"
     save_numpy(path, all_surfaces)
     
     if model=="NN":
-        path=f"results/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/_country_FE.np"
+        path=f"results/MonteCarlo/{type}/{spec}/{model}/{cfg.instance.model_selection}/{datetime.today().strftime('%Y-%m-%d')}/_country_FE.np"
         save_numpy(path, country_FE)
-
-    path= f"results/config/MonteCarlo/{spec}/{model}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
-    save_yaml(path, OmegaConf.to_yaml(cfg))
-        
 
 
 
@@ -139,6 +154,9 @@ if __name__ == "__main__":
                 mc_loop(cfg, spec, model)
             
             print("\nAll specifications processed.")
+            
+        path= f"results/config/MonteCarlo/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
+        save_yaml(path, OmegaConf.to_yaml(cfg, sort_keys=False))
         print("\nMonte Carlo simulations completed for all models.")
     run_mc()
     

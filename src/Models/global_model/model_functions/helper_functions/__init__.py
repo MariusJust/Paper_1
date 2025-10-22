@@ -11,3 +11,5 @@ from .preprocess import Preprocess
 from .initialiseParams import initialize_parameters
 from .prediction_model import pred_model
 from .visual_model import Visual_model
+from .holdoutMonitor import HoldoutMonitor
+from .within import WithinHelper
