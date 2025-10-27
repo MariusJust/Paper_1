@@ -1,4 +1,5 @@
 from collections import defaultdict
+import tensorflow as tf
 def initialize_parameters(self):
       
         self.individuals = {}
@@ -22,14 +23,20 @@ def initialize_parameters(self):
         self.Quant975 = defaultdict(dict)
   
         self.y_train_df = defaultdict(dict)
-        self.y_val_df = defaultdict(dict)
-        
-        self.x_train_transf = defaultdict(dict)
-        self.x_val_transf = defaultdict(dict)
-
         self.y_train_transf = defaultdict(dict)
+        
+        self.y_val_df = defaultdict(dict)
         self.y_val_transf = defaultdict(dict)
         
+        self.y_train_val_df = defaultdict(dict)
+        self.y_train_val_transf = defaultdict(dict)
+        
+
+        self.x_train_transf = defaultdict(dict)
+        self.x_val_transf = defaultdict(dict)
+        self.x_train_val_transf = defaultdict(dict)
+        
+
         self.mask = defaultdict(dict)
 
         self.in_sample_loss = None
@@ -43,12 +50,16 @@ def initialize_parameters(self):
         
 
         self.model_pred = None
+        # tf.print(self.x_val is not None)
+        if self.x_val is not None:
+            self.T = self.x_train_val[0]['global'].shape[0]
 
+            self.time_periods = self.x_train_val[0]['global'].index.values
+        else:
+            self.T = self.x_train[0]['global'].shape[0]
 
-        self.T = self.x_train[0]['global'].shape[0]
-        
-        self.time_periods = self.x_train[0]['global'].index.values
-        
+            self.time_periods = self.x_train[0]['global'].index.values
+        # tf.print(">>> Initialised T:", self.T)
         self.Depth=len(self.node)
         
         

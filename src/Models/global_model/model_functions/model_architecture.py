@@ -16,18 +16,35 @@ def SetupGlobalModel(self):
     input_temp   = Input(shape=(None, int(self.N['global'])), name='temp_input')
 
     if self.x_val is not None:
+      
+        #training period targets and inputs for holdout
+        self.input_data_temp_train_val= tf.reshape(tf.convert_to_tensor(self.x_train_val_transf[0]['global']), (1, self.T, self.N['global']))
+        self.input_data_precip_train_val = tf.reshape(tf.convert_to_tensor(self.x_train_val_transf[1]['global']), (1, self.T, self.N['global']))
+        self.targets_train_val = tf.reshape(tf.convert_to_tensor(self.y_train_val_transf['global']), (1, self.T, self.N['global']))
+        
+        #validation input and targets for holdout
         self.input_data_temp_val = tf.reshape(tf.convert_to_tensor(self.x_val_transf[0]['global']), (1, self.holdout, self.N['global']))
         self.input_data_precip_val = tf.reshape(tf.convert_to_tensor(self.x_val_transf[1]['global']), (1, self.holdout, self.N['global']))
         self.targets_val = tf.reshape(tf.convert_to_tensor(self.y_val_transf['global']), (1, self.holdout, self.N['global']))
+
+        #full sample
+        self.input_data_temp = tf.reshape(tf.convert_to_tensor(self.x_train_transf[0]['global']), (1, self.T + self.holdout, self.N['global']))
+        self.input_data_precip = tf.reshape(tf.convert_to_tensor(self.x_train_transf[1]['global']), (1, self.T + self.holdout, self.N['global']))
+        self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T + self.holdout, self.N['global']))
+    else:
+        self.noObs['train'] = self.noObs['global']
+        self.input_data_temp = tf.reshape(tf.convert_to_tensor(self.x_train_transf[0]['global']), (1, self.T, self.N['global']))
+        self.input_data_precip = tf.reshape(tf.convert_to_tensor(self.x_train_transf[1]['global']), (1, self.T, self.N['global']))    
+        self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T, self.N['global'])) 
         
-    self.input_data_temp = tf.reshape(tf.convert_to_tensor(self.x_train_transf[0]['global']), (1, self.T, self.N['global']))
-    self.input_data_precip = tf.reshape(tf.convert_to_tensor(self.x_train_transf[1]['global']), (1, self.T, self.N['global']))    
-    # creates a target tensor of dimension (1, T, N) where the first dimension is the batch size, the second dimension is the time period, and the third dimension is the country. variable is the growth rate
-    self.targets = tf.reshape(tf.convert_to_tensor(self.y_train_transf['global']), (1, self.T, self.N['global']))
-   
+
     self.Mask = tf.reshape(
     tf.convert_to_tensor(self.mask['global']),
-                        (1, self.T, self.N['global']) )
+                        (1, self.input_data_temp.shape[1], self.N['global']) )
+    
+    # self.Mask_train = tf.reshape(
+    #     tf.convert_to_tensor(self.mask['train']),
+    #     (1, self.T, self.N['global']))
 
     self.time_periods = np.arange(1, self.T+1, 1)
 
@@ -65,9 +82,11 @@ def SetupGlobalModel(self):
       else:
         output = Add()([time_FE, country_FE, output_tmp])
       
-
+      
+     
+    # tf.print(">>> Setting up Matrixize layer with T:", self.T, " and noObs['train']:", self.noObs["train"]  )
     # Creating the final output matrix with the correct dimensions
-    output_matrix = Matrixize(N=self.N['global'], T=self.T, noObs=self.noObs['global'], mask=self.Mask)(output)
+    output_matrix = Matrixize(N=self.N['global'], T=self.T, mask=self.Mask, holdout=self.holdout, n_obs_train=self.noObs["train"])(output)
 
     # Compiling the model
     self.model = Model(inputs=[input_temp, input_precip], outputs=output_matrix)

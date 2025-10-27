@@ -35,6 +35,8 @@ class MainLoop:
             node=None, 
             x_train=None,     
             y_train=None,
+            x_train_val=None,
+            y_train_val=None,
             x_val=None,
             y_val=None,
             dropout=self.dropout,
@@ -57,16 +59,18 @@ class MainLoop:
     def run_experiment(self):   
         #pass model inputs to the factory, if we have holdout periods, we need to remove them from the input data
         if self.holdout > 0:
+            self.factory.x_train = {0: self.temp, 1: self.precip}
+            self.factory.y_train = self.growth
             
-            temp_train = {key: df.iloc[:-self.holdout, :] for key, df in self.temp.items()}
+            temp_train_val = {key: df.iloc[:-self.holdout, :] for key, df in self.temp.items()}
             temp_val = {key: df.iloc[-self.holdout:, :] for key, df in self.temp.items()}
-            precip_train = {key: df.iloc[:-self.holdout, :] for key, df in self.precip.items()}
+            precip_train_val = {key: df.iloc[:-self.holdout, :] for key, df in self.precip.items()}
             precip_val = {key: df.iloc[-self.holdout:, :] for key, df in self.precip.items()}
-            growth_train = {key: df.iloc[:-self.holdout, :] for key, df in self.growth.items()}
+            growth_train_val = {key: df.iloc[:-self.holdout, :] for key, df in self.growth.items()}
             growth_val = {key: df.iloc[-self.holdout:, :] for key, df in self.growth.items()}
-            
-            self.factory.x_train = {0: temp_train, 1: precip_train}
-            self.factory.y_train = growth_train
+
+            self.factory.x_train_val = {0: temp_train_val, 1: precip_train_val}
+            self.factory.y_train_val = growth_train_val
             self.factory.x_val = {0: temp_val, 1: precip_val}
             self.factory.y_val = growth_val
             
@@ -88,13 +92,18 @@ class MainLoop:
             
             model_instance=self.factory.get_model()
             model_instance.fit(lr=self.lr, min_delta=self.min_delta, patience=self.patience, verbose=self.verbose)
-            model_instance.in_sample_predictions()
-            self.models_tmp[j] = model_instance
+           
+            if self.holdout>0:
+                self.models_tmp[j] = model_instance
+                self.holdout_MSE[j] = model_instance.holdout_loss
+            else:
+                model_instance.in_sample_predictions()
+                self.models_tmp[j] = model_instance
 
-            #saves the 
-            self.BIC_list[j] = model_instance.BIC
-            self.AIC_list[j] = model_instance.AIC
-            self.holdout_MSE[j] = model_instance.holdout_loss
+                #saves the information criteria
+                self.BIC_list[j] = model_instance.BIC
+                self.AIC_list[j] = model_instance.AIC
+                    
 
             print(f"Process {os.getpid()} completed initialization {j+1}/{self.no_inits} (IC mode) for node {self.node}", flush=True)
 
@@ -107,21 +116,25 @@ class MainLoop:
         
         # retrain the best model on the full data (train + val)
         if self.holdout > 0:
-            self.factory.x_train = {0: self.temp, 1: self.precip}
-            self.factory.y_train = self.growth
-            self.factory.x_val = None
-            self.factory.y_val = None
-            self.factory.node = self.node
             
-            tf.random.set_seed(self.seed_value + best_idx_holdout)
-            np.random.default_rng(self.seed_value + best_idx_holdout)
-            random.seed(self.seed_value + best_idx_holdout)
-
             if hasattr(self.factory, '_cache'):
                 try:
                     self.factory._cache.clear()
                 except Exception:
                     self.factory._cache = {}
+                
+            self.factory.x_train = {0: self.temp, 1: self.precip}
+            self.factory.y_train = self.growth
+            self.factory.x_val = None
+            self.factory.y_val = None
+            self.factory.node = self.node
+            self.factory.holdout=0
+            
+            tf.random.set_seed(self.seed_value + best_idx_holdout)
+            np.random.default_rng(self.seed_value + best_idx_holdout)
+            random.seed(self.seed_value + best_idx_holdout)
+
+         
                 
             best_model=self.factory.get_model()
             best_model.fit(lr=self.lr, min_delta=self.min_delta, patience=self.patience, verbose=self.verbose)

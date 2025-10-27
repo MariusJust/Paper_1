@@ -25,10 +25,11 @@ class WithinHelper:
         Delta_N_inv = np.linalg.inv(Delta_N)
         
         Delta_N
+        
         # Note: Delta_TN.T is (N x T)
         D_bar = Delta_2 - Delta_1 @ Delta_N_inv @ Delta_TN.T
 
-        # Q = Delta_T - Delta_TN @ Delta_N_inv @ Delta_TN.T  (T x T)
+       
         Q = Delta_T - Delta_TN @ Delta_N_inv @ Delta_TN.T
 
         Q_inv = np.linalg.inv(Q)

@@ -5,7 +5,7 @@ from .fixed_effects import create_fixed_effects, create_country_trends
 from .matrixize import Matrixize
 from .prepare_data import Prepare, load_data
 from .swish import Swish
-from .loss import individual_loss
+from .loss import individual_loss, HoldoutLoss
 from .vectorize import Vectorize
 from .preprocess import Preprocess
 from .initialiseParams import initialize_parameters

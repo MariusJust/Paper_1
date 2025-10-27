@@ -1,17 +1,17 @@
 import tensorflow as tf
 import numpy as np 
 from tensorflow.keras.layers import Add
-from sklearn.linear_model import LinearRegression
 
 class HoldoutMonitor(tf.keras.callbacks.Callback):
-    def __init__(self, mod, patience, min_delta, verbose, P_matrix_train=None, P_matrix_val=None):
+    def __init__(self, mod, patience, min_delta, verbose, P_matrix_train=None, P_matrix_full=None, y_true=None):
         super().__init__()
-        self.model = mod
+        self.mod= mod
         self.patience = patience
         self.min_delta = min_delta
         self.verbose = verbose
         self.P_matrix_train = P_matrix_train
-        self.P_matrix_val = P_matrix_val
+        self.P_matrix_full = P_matrix_full
+        self.y_true = y_true
 
         # Early-stopping bookkeeping
         self.best_loss = np.inf
@@ -35,20 +35,18 @@ class HoldoutMonitor(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
 
         #climate part prediction for the holdout period
-        precip_val=tf.reshape(np.array(self.mod.input_data_precip_val), (1, 1, -1, 1))
-        temp_val=tf.reshape(np.array(self.mod.input_data_temp_val), (1, 1, -1, 1))
+        precip_val=tf.reshape(np.array(self.mod.input_data_precip), (1, 1, -1, 1))
+        temp_val=tf.reshape(np.array(self.mod.input_data_temp), (1, 1, -1, 1))
         X_in=tf.concat([temp_val, precip_val], axis=3)
-        climate_part= self.mod.model_visual([X_in]) 
+        climate_part= tf.reshape(self.mod.model_visual([X_in]), (1, self.mod.T+self.mod.holdout, self.mod.N['global']))
         
-        final_prediction=tf.matmul(self.P_matrix_val, climate_part)
+        y_pred=tf.reshape(climate_part[~self.mod.Mask_full], (1, -1, 1))
+        
+        final_prediction_proj=tf.matmul(self.P_matrix_full, tf.cast(y_pred, dtype=tf.float64))[:, -self.y_true.shape[1]:, :]
 
-        true_values=self.model_ref.y_val_transf
+      
 
-        if final_prediction.shape != np.array(true_values).shape:
-            raise ValueError(f"Shape mismatch: final_pred.shape={final_prediction.shape}, targets_val.shape={np.array(true_values).shape}."
-                             " Adjust how climate_pred / country_FE / time_FE are constructed.")
-
-        mse = float(np.nanmean((final_prediction - true_values) ** 2))
+        mse = float(np.nanmean((final_prediction_proj - self.y_true) ** 2))
         
         if logs is not None:
             logs['holdout_mse'] = mse
@@ -73,23 +71,7 @@ class HoldoutMonitor(tf.keras.callbacks.Callback):
                 self.model_ref.stop_training = True
        
             
-    # def _predict_time_FE(self, time_FE_vector):
-        
-    #     #definning regressors
-    #     X=np.arange(len(time_FE_vector)).reshape(-1, 1)+1
-    #     Y=time_FE_vector
-        
-    #     #making the linear model
-    #     model = LinearRegression() 
-    #     model.fit(X, Y)
-        
-    #     #make prediction vector for the holdout set 
-    #     pred_vector=np.arange(len(time_FE_vector), len(time_FE_vector)+self.mod.holdout).reshape(-1,1) + 1
-        
-    #     return model.predict(pred_vector)
-        
-        
-        
+
 
    
   
