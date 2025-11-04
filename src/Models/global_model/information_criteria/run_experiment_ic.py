@@ -10,7 +10,7 @@ from datetime import datetime
 turn_off_warnings()
 
 class MainLoop:
-    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_countries, time_periods, penalty, country_trends, dynamic_model, holdout, within_transform, data=None):
+    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_countries, time_periods, country_trends, dynamic_model, holdout, within_transform, data=None):
         self.node = node
         self.no_inits = no_inits
         self.seed_value = seed_value
@@ -19,7 +19,6 @@ class MainLoop:
         self.patience = patience
         self.verbose = verbose
         self.dropout = dropout
-        self.penalty = penalty
         self.data = data
         self.models_tmp = np.zeros(no_inits, dtype=object)
         self.BIC_list = np.zeros(no_inits)
@@ -30,6 +29,7 @@ class MainLoop:
         self.holdout=holdout
         self.within_transform=within_transform
         
+       
         #build a factory for the model, so we don't have to re-initialize the model each time
         self.factory = Model(
             node=None, 
@@ -40,13 +40,13 @@ class MainLoop:
             x_val=None,
             y_val=None,
             dropout=self.dropout,
-            penalty=self.penalty,
             country_trends=self.country_trends,
             dynamic_model=self.dynamic_model,
             within_transform=self.within_transform,
             holdout=self.holdout
         )
-        
+        print(f"PID {os.getpid()} - factory assigned for node {self.node}. holdout={self.holdout} within_transform={self.within_transform}", flush=True)
+
         
         # Load data
         if data is not None: #ie we are running a Monte Carlo experiment
@@ -57,6 +57,7 @@ class MainLoop:
    
    
     def run_experiment(self):   
+        print(f"PID {os.getpid()} - run_experiment start for node {self.node}", flush=True)
         #pass model inputs to the factory, if we have holdout periods, we need to remove them from the input data
         if self.holdout > 0:
             self.factory.x_train = {0: self.temp, 1: self.precip}
@@ -91,8 +92,10 @@ class MainLoop:
 
             
             model_instance=self.factory.get_model()
+            print(f"PID {os.getpid()} - init {j+1}/{self.no_inits}: about to fit (seed={current_seed})", flush=True)
             model_instance.fit(lr=self.lr, min_delta=self.min_delta, patience=self.patience, verbose=self.verbose)
-           
+            print(f"PID {os.getpid()} - init {j+1}/{self.no_inits}: fit finished", flush=True)
+            
             if self.holdout>0:
                 self.models_tmp[j] = model_instance
                 self.holdout_MSE[j] = model_instance.holdout_loss
@@ -137,7 +140,9 @@ class MainLoop:
          
                 
             best_model=self.factory.get_model()
+
             best_model.fit(lr=self.lr, min_delta=self.min_delta, patience=self.patience, verbose=self.verbose)
+    
             self.models_tmp[best_idx_holdout] = best_model
         
         

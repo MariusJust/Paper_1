@@ -42,9 +42,7 @@ def SetupGlobalModel(self):
     tf.convert_to_tensor(self.mask['global']),
                         (1, self.input_data_temp.shape[1], self.N['global']) )
     
-    # self.Mask_train = tf.reshape(
-    #     tf.convert_to_tensor(self.mask['train']),
-    #     (1, self.T, self.N['global']))
+
 
     self.time_periods = np.arange(1, self.T+1, 1)
 
@@ -74,7 +72,7 @@ def SetupGlobalModel(self):
     output_tmp = create_output_layer(self, input_last)
     
     #when we use the within transformation, we do not add fixed effects
-    if self.within_transform:
+    if self.add_fe:
       output = output_tmp
     else:
       if self.dynamic_model: 

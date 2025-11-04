@@ -10,7 +10,7 @@ class Multiprocess:
     """
     This class is designed to run either cross-validation (CV) or information criteria (IC) based model selection in parallel.
     It initializes with configuration parameters (from the config folder) and data, builds the argument list for each node, and executes the training in parallel.
-    The results are stored in a dictionary where keys are node indices and values are lists containing either cross-validation errors or BIC/AIC values.
+    The results are stored in a dictionary where keys are node indices and values are lists containing either cross-validation errors, BIC/AIC values or holdout errors.
     """
     def __init__(self, cfg, data=None):
         self.Model_selection = cfg.model_selection
@@ -42,8 +42,9 @@ class Multiprocess:
            build_arg_list_ic(self)
         else:
             raise ValueError("Model_selection must be either 'CV' or 'IC'")
-        
+        print(f"Starting parallel processing with {self.n_process} processes...")
         results= self.parallel_execution() 
+        print("Parallel processing completed.")
         return results
     
 
@@ -70,11 +71,14 @@ class Multiprocess:
                     cv_error, node = result
                     self.storage[node] = [cv_error]
                 else:
+                    print(f"finished node {i}")
                     holdout_error, bic, aic, node = result
                     self.storage[node] = [bic,aic, holdout_error]
-
+            print("All nodes have been processed or timed out.")
             pool.terminate()
             pool.join()
+            print("All worker processes have been terminated.")
+                  
             return self.storage 
 
             

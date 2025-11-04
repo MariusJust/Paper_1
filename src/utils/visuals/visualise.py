@@ -30,7 +30,7 @@ def create_pred_input(mc, mean_T, std_T, mean_P, std_P, time_periods=None):
     
     temp_vals = np.linspace(0, 30, 90) 
    
-    if mc: #we use meters in mc
+    if mc: #we use meters in mc 
         precip_vals=np.linspace(0.012,5.435,90)
     else:
         precip_vals= np.linspace(12.03731002, 5435.30011, 90)

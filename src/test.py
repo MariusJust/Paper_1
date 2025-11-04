@@ -1,192 +1,175 @@
-import numpy as np
-import pandas as pd
 
-import os
-from models.global_model.model_functions.helper_functions.prepare_data import Prepare
-from utils import create_pred_input
-from simulations.simulation_functions import illustrate_synthetic_data
-from models import MultivariateModelGlobal as Model       
-import numpy as np
-import plotly.graph_objects as go
-os.environ['PYTHONHASHSEED'] = str(0)
-
-#model parameters                    
-lr = 0.001                      # Learning rate
-min_delta = 1e-2               # Tolerance for optimization
-patience = 20                 # Patience for early stopping
-verbose = 2                     # Verbosity mode for optimization
-n_countries=196
-time_periods=63                 #
-
-#prepare the data
-data=pd.read_excel('../data/MainData.xlsx')
-growth, precip, temp = Prepare(data, n_countries, time_periods)
-x_train = {0:temp, 1:precip}
-
-
-fig=illustrate_synthetic_data(np.array(temp["global"]).flatten(), np.array(precip["global"]).flatten(), np.array(growth["global"]).flatten())
-
-fig.show()
-
-fig.write_html(f'../results/images/data_grid.html')
-     
-#summary statics for standardisation
-mean_temp=np.nanmean(data["TempPopWeight"])
-std_temp=np.nanstd(data["TempPopWeight"])
-mean_precip=np.nanmean(data["PrecipPopWeight"])
-std_precip=np.nanstd(data["PrecipPopWeight"])
-
-
-_, T, P = create_pred_input(
-        True,
-        mean_T=mean_temp,
-        std_T=std_temp,
-        mean_P=mean_precip,
-        std_P=std_precip,
-        time_periods=63
-    )
-
-
-
-surface=np.load(f"/workspaces/Paper_1/results/MonteCarlo/Dynamic/Leirvik/NN/2025-09-08/surfaces_(48,).np.npy")
-
-len(surface[0])
-
-mean_surface_frames = np.mean(surface, axis=0)
-len(mean_surface_frames)
-
-surface= mean_surface_frames.reshape(90 * 90, 64)
-
-#illustrate just one time period 
-
-fig = go.Figure()
-fig.add_trace(go.Surface(
-    z=surface[:,63].reshape(90,90),
-    x=T[:,:,0],
-    y=P[:,:,0],
-    colorscale='Cividis',
-    opacity=0.85,
-    showscale=False
-))
-
-fig.show()
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import plotly.graph_objects as go
+    import os
+    from models.global_model.model_functions.helper_functions.prepare_data import Prepare
+    from utils import create_pred_input
+    from scipy.interpolate import griddata
+    from models import MultivariateModelGlobal as Model       
+    import tensorflow as tf
+    import pandas as pd 
+    import os 
+    from tensorflow.keras.callbacks import EarlyStopping
+    from tensorflow.keras.optimizers import Adam
 
 
 
 
+    from models.global_model.model_functions.helper_functions import initialize_parameters, Preprocess, individual_loss, WithinHelper
+
+
+
+    #change working directory
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+    os.environ['PYTHONHASHSEED'] = str(0)
+
+    #model parameters                    
+    lr = 0.001                      # Learning rate
+    min_delta = 1e-4               # Tolerance for optimization
+    patience = 20                   # Patience for early stopping
+    verbose = 2                     # Verbosity mode for optimization
+    n_countries=196
+    time_periods=63                 #
+    holdout=5                      #number of holdout periods for validation
+
+    #prepare the data
+    data=pd.read_excel('../data/MainData.xlsx')
+    growth, precip, temp = Prepare(data, n_countries, time_periods)
+    x_train = {0:temp, 1:precip}
+
+    #summary statics for standardisation
+    mean_temp=np.nanmean(data["TempPopWeight"])
+    std_temp=np.nanstd(data["TempPopWeight"])
+    mean_precip=np.nanmean(data["PrecipPopWeight"])
+    std_precip=np.nanstd(data["PrecipPopWeight"])
+
+    pred_input, T, P= create_pred_input(mc=False, mean_T=mean_temp, std_T=std_temp, mean_P=mean_precip, std_P=std_precip)
+
+
+
+    ######### train one model with holdout and within transformation ###########
+    node=(32,2)
+    factory = Model(
+                node=None, 
+                x_train=None,     
+                y_train=None,
+                x_train_val=None,
+                y_train_val=None,
+                x_val=None,
+                y_val=None,
+                dropout=0,
+                country_trends=False,
+                dynamic_model=False,
+                within_transform=True,
+                holdout=5
+            )
+        
+        
+    factory.x_train = {0: temp, 1: precip}
+
+    factory.y_train = growth
+                
+
+    temp_train_val = {key: df.iloc[:-holdout, :] for key, df in temp.items()}
+    temp_val = {key: df.iloc[-holdout:, :] for key, df in temp.items()}
+    precip_train_val = {key: df.iloc[:-holdout, :] for key, df in precip.items()}
+    precip_val = {key: df.iloc[-holdout:, :] for key, df in precip.items()}
+    growth_train_val = {key: df.iloc[:-holdout, :] for key, df in growth.items()}
+    growth_val = {key: df.iloc[-holdout:, :] for key, df in growth.items()}
+
+
+    factory.x_train_val = {0: temp_train_val, 1: precip_train_val}
+    factory.y_train_val = growth_train_val
+    factory.x_val = {0: temp_val, 1: precip_val}
+    factory.y_val = growth_val
+    factory.node = node
+
+    factory = factory.get_model()
+
+
+    if factory.within_transform==True:
+        if factory.holdout>0:
+        
+        
+            #compute p matrix on whole data
+            P_helper_full=WithinHelper(factory.input_data_temp)
+            P_matrix_full=P_helper_full.calculate_P_matrix()
+            p_tensor=tf.convert_to_tensor(P_matrix_full, dtype=tf.float32)
+
+
+            y_true_target_train=tf.matmul(p_tensor, tf.cast(tf.reshape(factory.targets[~factory.Mask], (1, -1, 1)), dtype=tf.float32))[:,  :factory.noObs['train'], :]
+
+            y_true_target_val=tf.matmul(p_tensor, tf.cast(tf.reshape(factory.targets[~factory.Mask], (1, -1, 1)), dtype=tf.float32))[:, factory.noObs['train']:, :]
+
+            n_obs_holdout= factory.noObs['global'] - factory.noObs['train']
+
+            factory.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=factory.Mask, p_matrix=p_tensor, n_holdout=n_obs_holdout))
+
+            print(f"PID {os.getpid()} - compiled model with within_transform and holdout of {n_obs_holdout} observations", flush=True)
+            if n_obs_holdout>0:
+                es = EarlyStopping(monitor='val_loss', mode='min', min_delta=min_delta, patience=patience,
+                                    restore_best_weights=True, verbose=verbose)
+                callbacks = [es]
+                #validation data preprocessing
+                x_train_val =  [factory.input_data_temp_train_val, factory.input_data_precip_train_val]
+                x_val =  [factory.input_data_temp_val, factory.input_data_precip_val]
+                
+                factory.model.fit(x_train_val, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False, validation_data=(x_val, y_true_target_val))
+            
+        
+            factory.holdout_loss = np.min(es.best)
 
 
 
 
+    ######### retrain the full model and save weights ###########
+
+    if hasattr(factory, '_cache'):
+                    try:
+                        factory._cache.clear()
+                    except Exception:
+                        factory._cache = {}
+                        
+    factory.x_train = {0: temp, 1: precip}
+    factory.y_train = growth
+    factory.x_val = None
+    factory.y_val = None
+    factory.node = node
+    factory.holdout=0
+                
+    model_full=factory.get_model()
+    model_full.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
+
+    weights=model_full.model.get_weights()
+    
+    #save weights
+
+    output_dir = f'../results/Model Parameters/IC/2025-04-11/'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    weight_file = f'../results/Model Parameters/IC/2025-04-11/{node}.weights.h5'
+    model_full.model.save_weights(weight_file)
+
+
+    ###################################### Now use the weights to retrain the model without within transfomr#####################################################
 
 
 
+    factory = Model(node, x_train, growth, dropout=0, country_trends=False, dynamic_model=False, within_transform=False, holdout=0)
 
 
-# --- Inputs (use your existing arrays) ---
-# T_total = number of time periods used in the formula (63 in your example)
-T_total = 63
-temp_grid = T[:, :, 0]       # 2D array of temperatures (shape: (n_precip, n_temp))
-precip_grid = P[:, :, 0]  # convert to meters if P was mm
+    factory.Depth=len(node)
+    model=factory.get_model()
+    weight_file = f'../results/Model Parameters/IC/2025-04-11/{node}.weights.h5'
+    model.load_params(weight_file)
 
-# --- build frames ---
-frames = []
-for t in range(1, T_total + 1):
-    # growth formula from your function (broadcasting over the 2D grids)
-    growth = (
-        (T_total - t + 1) / T_total * 0.0127 * temp_grid
-        + (T_total - t + 1) / T_total * 0.145 * precip_grid
-        - (T_total - t + 1)/T_total * 0.0125 * temp_grid * precip_grid
-        + (t-1)/T_total * 0.00029 * precip_grid * temp_grid**2
-        + (t-1)/T_total * 0.007 * temp_grid * precip_grid**2
-        - (t-1)/T_total * 0.00013 * temp_grid**2 * precip_grid**2
-        - (t - 1) / T_total * 0.0005 * temp_grid**2
-        - (t - 1) / T_total * 0.047 * precip_grid**2
-    )
 
-    surf = go.Surface(
-        x=temp_grid,
-        y=precip_grid,
-        z=growth,
-        colorscale='Cividis',
-        opacity=0.85,
-        showscale=False,
-        name=f'Time {t}',
-        hoverinfo='skip'  # optional: skip heavy hover info
-    )
+    # fit & predict
+    model.fit(lr=lr, min_delta=min_delta, patience=patience, verbose=verbose)
 
-    frames.append(go.Frame(data=[surf], name=str(t)))
+    pred_flat = model.model_visual.predict([pred_input]).reshape(-1,)
+    Growth = pred_flat.reshape(T.shape)
 
-# --- initial surface is the first frame ---
-initial = frames[0].data[0]
-
-# --- build the figure with frames ---
-fig = go.Figure(
-    data=[initial],
-    frames=frames
-)
-
-# --- slider (one step per frame) ---
-steps = []
-for i, fr in enumerate(frames):
-    step = dict(
-        method="animate",
-        args=[
-            [fr.name],
-            dict(mode="immediate", frame=dict(duration=200, redraw=True), transition=dict(duration=0))
-        ],
-        label=fr.name
-    )
-    steps.append(step)
-
-sliders = [dict(
-    active=0,
-    pad={"t": 50},
-    steps=steps,
-    currentvalue={"prefix": "Time: "}
-)]
-
-# --- layout (camera, fixed z-range, buttons) ---
-fig.update_layout(
-    title="Animated Growth Surface over Time",
-    scene=dict(
-        xaxis_title='Temperature (°C)',
-        yaxis_title='Precipitation (m)',
-        zaxis_title='Δ ln(Growth)',
-        camera=dict(eye=dict(x=2.11, y=0.12, z=0.38)),
-        zaxis=dict(range=[-1.5, 2])  # keep z-range fixed to avoid jumping as surface changes
-    ),
-    updatemenus=[
-        dict(
-            type="buttons",
-            showactive=False,
-            y=0.05,
-            x=0.1,
-            xanchor="right",
-            yanchor="top",
-            pad={"t": 60, "r": 10},
-            buttons=[
-                dict(label="Play",
-                     method="animate",
-                     args=[None, dict(frame=dict(duration=120, redraw=True),
-                                      transition=dict(duration=0),
-                                      fromcurrent=True,
-                                      mode='immediate')]),
-                dict(label="Pause",
-                     method="animate",
-                     args=[[None], dict(frame=dict(duration=0, redraw=False),
-                                        mode='immediate',
-                                        transition=dict(duration=0))])
-            ],
-        )
-    ],
-    sliders=sliders,
-    showlegend=False,
-    height=600,
-    width=800
-)
-
-fig.show()
-
-# Optional: save as interactive HTML
-fig.write_html("growth_animation_Interactive.html")

@@ -6,18 +6,19 @@ instance:
   patience: 3
   verbose: 2
   dropout: 0
-  n_process: 1
+  n_process: 2
   model_selection: 'IC'
   n_splits: 5
   cv_approach: 'trend' # 'full' or 'trend' or 'simple'
   penalty: 0
-  timeout_per_node: 36000
+  timeout_per_node: 1000
   n_countries: 196
   time_periods: 63
   country_trends: False
   dynamic_model: False
   holdout: 5
   within_transform: True
+  add_fe: False
   nodes_list:
     - (2,)
     - (4,)

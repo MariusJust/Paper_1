@@ -59,10 +59,7 @@ def compute_x_train_val(self):
 
             self.x_train_val_transf[key]['global'] = np.array(self.x_train_val[key]['global'].copy())
             self.x_val_transf[key]['global'] = np.array(self.x_val[key]['global'].copy())
-            #    global_stats = compute_stats(self.x_train_val_transf[key]['global'])
-            #    for key, val in global_stats.items():
-            #        getattr(self, key.capitalize())[key]['global'] = val
-   
+       
             
 
 def compute_y_train_val(self):
@@ -74,9 +71,7 @@ def compute_y_train_val(self):
         self.y_val_df['global'] = self.y_val['global'].copy()
         self.y_val_transf['global'] = np.array(self.y_val['global'].copy())
         
-        # global_stats = compute_stats(self.y_val_transf['global'])
-        # for key, val in global_stats.items():
-        #     getattr(self, key.capitalize())['global'] = val
+   
 
 
 def compute_mask_train_val(self, x_train):
