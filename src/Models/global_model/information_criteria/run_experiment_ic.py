@@ -43,9 +43,8 @@ class MainLoop:
             country_trends=self.country_trends,
             dynamic_model=self.dynamic_model,
             within_transform=self.within_transform,
-            holdout=self.holdout
+            holdout=self.holdout,
         )
-        print(f"PID {os.getpid()} - factory assigned for node {self.node}. holdout={self.holdout} within_transform={self.within_transform}", flush=True)
 
         
         # Load data
@@ -57,7 +56,6 @@ class MainLoop:
    
    
     def run_experiment(self):   
-        print(f"PID {os.getpid()} - run_experiment start for node {self.node}", flush=True)
         #pass model inputs to the factory, if we have holdout periods, we need to remove them from the input data
         if self.holdout > 0:
             self.factory.x_train = {0: self.temp, 1: self.precip}
@@ -74,7 +72,7 @@ class MainLoop:
             self.factory.y_train_val = growth_train_val
             self.factory.x_val = {0: temp_val, 1: precip_val}
             self.factory.y_val = growth_val
-            
+            self.factory.add_fe = False
             
         else:
             self.factory.x_train = {0: self.temp, 1: self.precip}
@@ -92,10 +90,8 @@ class MainLoop:
 
             
             model_instance=self.factory.get_model()
-            print(f"PID {os.getpid()} - init {j+1}/{self.no_inits}: about to fit (seed={current_seed})", flush=True)
             model_instance.fit(lr=self.lr, min_delta=self.min_delta, patience=self.patience, verbose=self.verbose)
-            print(f"PID {os.getpid()} - init {j+1}/{self.no_inits}: fit finished", flush=True)
-            
+         
             if self.holdout>0:
                 self.models_tmp[j] = model_instance
                 self.holdout_MSE[j] = model_instance.holdout_loss
@@ -107,9 +103,6 @@ class MainLoop:
                 self.BIC_list[j] = model_instance.BIC
                 self.AIC_list[j] = model_instance.AIC
                     
-
-            print(f"Process {os.getpid()} completed initialization {j+1}/{self.no_inits} (IC mode) for node {self.node}", flush=True)
-
         # Select the best initialization based on BIC (or AIC)
         
         best_idx_BIC = int(np.argmin(self.BIC_list))
@@ -117,33 +110,33 @@ class MainLoop:
         best_idx_holdout = int(np.argmin(self.holdout_MSE))
         
         
-        # retrain the best model on the full data (train + val)
-        if self.holdout > 0:
+        # # retrain the best model on the full data (train + val)
+        # if self.holdout > 0:
             
-            if hasattr(self.factory, '_cache'):
-                try:
-                    self.factory._cache.clear()
-                except Exception:
-                    self.factory._cache = {}
+        #     if hasattr(self.factory, '_cache'):
+        #         try:
+        #             self.factory._cache.clear()
+        #         except Exception:
+        #             self.factory._cache = {}
                 
-            self.factory.x_train = {0: self.temp, 1: self.precip}
-            self.factory.y_train = self.growth
-            self.factory.x_val = None
-            self.factory.y_val = None
-            self.factory.node = self.node
-            self.factory.holdout=0
+        #     self.factory.x_train = {0: self.temp, 1: self.precip}
+        #     self.factory.y_train = self.growth
+        #     self.factory.x_val = None
+        #     self.factory.y_val = None
+        #     self.factory.node = self.node
+        #     self.factory.holdout=0
             
-            tf.random.set_seed(self.seed_value + best_idx_holdout)
-            np.random.default_rng(self.seed_value + best_idx_holdout)
-            random.seed(self.seed_value + best_idx_holdout)
+        #     tf.random.set_seed(self.seed_value + best_idx_holdout)
+        #     np.random.default_rng(self.seed_value + best_idx_holdout)
+        #     random.seed(self.seed_value + best_idx_holdout)
 
          
                 
-            best_model=self.factory.get_model()
+        #     best_model=self.factory.get_model()
 
-            best_model.fit(lr=self.lr, min_delta=self.min_delta, patience=self.patience, verbose=self.verbose)
+        #     best_model.fit(lr=self.lr, min_delta=self.min_delta, patience=self.patience, verbose=self.verbose)
     
-            self.models_tmp[best_idx_holdout] = best_model
+        #     self.models_tmp[best_idx_holdout] = best_model
         
         
         #only save the model parameters if the data is the real data, and not simulated data

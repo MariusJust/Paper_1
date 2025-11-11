@@ -97,7 +97,7 @@ class MultivariateModel:
             
                 self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=p_tensor, n_holdout=n_obs_holdout))
                 
-                print(f"PID {os.getpid()} - compiled model with within_transform and holdout of {n_obs_holdout} observations", flush=True)
+   
                 # if n_obs_holdout>0:
                 callbacks = [EarlyStopping(monitor='val_loss', mode='min', min_delta=min_delta, patience=patience,
                                     restore_best_weights=True, verbose=verbose)
@@ -106,23 +106,23 @@ class MultivariateModel:
                 x_train_val = [self.input_data_temp_train_val, self.input_data_precip_train_val]
                 x_val = [self.input_data_temp_val, self.input_data_precip_val]
                 
-                print(f"PID {os.getpid()} - starting fit with holdout of {n_obs_holdout} observations", flush=True)
+
                 
                 self.model.fit(x_train_val, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False, validation_data=(x_val, y_true_target_val))
                 self.holdout_loss = np.min(self.model.history.history['val_loss'])
-            else:
+            # else:
                    
         
-                self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=p_tensor, n_holdout=0))
+            #     self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=p_tensor, n_holdout=0))
 
 
-                callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
-                                    restore_best_weights=True, verbose=verbose)
+            #     callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
+            #                         restore_best_weights=True, verbose=verbose)
                     
-                        ]
+            #             ]
 
-                x_train = [self.input_data_temp, self.input_data_precip]
-                self.model.fit(x_train, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
+            #     x_train = [self.input_data_temp, self.input_data_precip]
+            #     self.model.fit(x_train, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
             
             #drop p matrix to save memory
             del p_tensor

@@ -73,14 +73,13 @@ def SetupGlobalModel(self):
     
     #when we use the within transformation, we do not add fixed effects
     if self.add_fe:
-      output = output_tmp
+        if self.dynamic_model: 
+          output = Add()([country_FE, output_tmp])
+        else:
+          output = Add()([time_FE, country_FE, output_tmp])
     else:
-      if self.dynamic_model: 
-        output = Add()([country_FE, output_tmp])
-      else:
-        output = Add()([time_FE, country_FE, output_tmp])
-      
-      
+      output = output_tmp
+    
      
     # tf.print(">>> Setting up Matrixize layer with T:", self.T, " and noObs['train']:", self.noObs["train"]  )
     # Creating the final output matrix with the correct dimensions
