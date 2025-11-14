@@ -48,13 +48,13 @@ def initialize_parameters(self):
         self.country_FE= None
         self.P_matrix= None
         
-        self.regions = list(self.x_train['temp'].keys())
+        self.regions = list(self.x_train[0].keys())
         
         #number of regions
         self.no_regions = len(self.regions)
-        self.T = self.x_train['temp'][self.regions[0]].shape[0]
+        self.T = self.x_train[0][self.regions[0]].shape[0]
        
-        self.time_periods = self.x_train['temp'][self.regions[0]].index.values
+        self.time_periods = self.x_train[0][self.regions[0]].index.values
         
         self.model_pred = None
         

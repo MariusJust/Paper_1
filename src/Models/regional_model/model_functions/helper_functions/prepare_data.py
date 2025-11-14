@@ -63,11 +63,11 @@ def Prepare(data):
     
 
     
-def load_data(model_selection, n_countries, time_periods, n_splits=None, growth=None):
+def load_data(model_selection, n_splits=None, growth=None):
     
     if model_selection == 'IC':
             data = pd.read_excel('data/MainData.xlsx')
-            growth, precip, temp = Prepare(data, n_countries, time_periods)
+            growth, precip, temp = Prepare(data)
             return growth, precip, temp
         
     elif model_selection == 'CV':

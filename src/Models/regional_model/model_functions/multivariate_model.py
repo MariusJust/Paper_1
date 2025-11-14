@@ -2,18 +2,17 @@ import numpy as np
 import tensorflow as tf
 import pandas as pd 
 import os 
-
 from .helper_functions import initialize_parameters, Preprocess, individual_loss,  WithinHelper
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
-from .model_architecture_reg import RegionalModel
+from .model_architecture_reg import Regions
 
 class MultivariateModel:
     """
     Class implementing the static neural network model.
     """
 
-    def __init__(self, node, master, x_train=None, y_train=None, x_train_val=None, y_train_val=None, y_val=None, x_val=None):
+    def __init__(self, node, cfg, x_train=None, y_train=None, x_train_val=None, y_train_val=None, y_val=None, x_val=None):
         """
         Instantiating class.
 
@@ -24,8 +23,8 @@ class MultivariateModel:
             * formulation:    str determining the formulation of the model. Must be one of 'global' or 'regional' or 'national'.
 
         NB: regions are inferred from the    keys of x_train and y_train.
-        """
-        self.master=master
+        """ 
+
         self.node = node
         self.x_train = x_train
         self.y_train = y_train
@@ -37,8 +36,9 @@ class MultivariateModel:
         self.region_builders=[]
 
         #unpack config
-        for key, value in vars(self.master.cfg).items():
+        for key, value in dict(cfg).items():
             setattr(self, key, value)
+            
         
     
     def _model_definition(self):
@@ -49,21 +49,24 @@ class MultivariateModel:
         Preprocess(self)
         
         # Create model instance for each region
-        RegionalModel(self)
+        regions=Regions(self, regions=self.regions)
+        regions.SetupRegionalModel()
+        
            
     
     def get_model(self):
-        tf.keras.backend.clear_session()
-    
-        # Build model fresh
-        self._model_definition()
-        return self
         
-        # key = tuple(self.node)
-        # if key not in self._cache:
-        #     self._model_definition()
-        #     self._cache[key] = self
-        # return self._cache[key]
+        # tf.keras.backend.clear_session()
+    
+        # # Build model fresh
+        # self._model_definition()
+        # return self
+        
+        key = tuple(self.node)
+        if key not in self._cache:
+            self._model_definition()
+            self._cache[key] = self
+        return self._cache[key]
       
     def fit(self, lr, min_delta, patience, verbose):
         """

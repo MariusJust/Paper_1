@@ -4,11 +4,9 @@ import pandas as pd
 
 
 def Preprocess(self):
-    import numpy as np
-    import pandas as pd
      
     compute_x_train_fullSample(self, self.x_train)      
-    compute_y_train_fullSample(self, self.y_train)
+    compute_y_train_fullSample(self)
     compute_mask_fullSample(self, self.x_train)
     
 
@@ -27,7 +25,7 @@ def compute_x_train_fullSample(self, x_train):
                         getattr(self, key1.capitalize())[key][region] = val
                         
                 #compute the number of observations, only for the first variables as the input variables are the same
-                if key == 'temp':
+                if key == 0:
                     self.individuals[region] = x_df_var.columns.values
                     self.N[region] =len(self.individuals[region]) 
                       
@@ -55,8 +53,8 @@ def compute_mask_fullSample(self, x_train):
 
      for region in self.regions:
             # Create a mask for each region
-            self.mask[region] = np.isnan(x_train[region])
-
+            self.mask[region] = np.isnan(self.x_train[0][region])
+    
 
 def compute_stats(arr):
         """

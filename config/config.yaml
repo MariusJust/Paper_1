@@ -17,8 +17,8 @@ instance:
   time_periods: 63
   country_trends: False
   dynamic_model: False
-  holdout: 5
-  within_transform: True
+  holdout: 0
+  within_transform: False
   add_fe: False
   nodes_list:
     - (2,)

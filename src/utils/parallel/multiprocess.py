@@ -88,8 +88,10 @@ class Multiprocess:
             
     def worker(self, node):
         if self.cfg.formulation == 'regional':
-            from models.global_model.information_criteria.run_experiment_ic import MainLoop as MainLoop
-            model_loop = MainLoop(self)
+            from models.regional_model.information_criteria.run_experiment_ic import MainLoop as MainLoop
+            model_loop = MainLoop(self, node)
+            Holdout_error, BIC, AIC, node= model_loop.run_experiment()
+            return Holdout_error, BIC, AIC, node
         # else:
         #     if self.Model_selection == 'CV':
         #         from models.global_model.cross_validation.run_experiment_cv import MainLoop as MainLoop
