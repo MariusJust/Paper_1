@@ -52,67 +52,35 @@ class MainLoop:
             model_instance=self.factory.get_model()
             model_instance.fit(lr=self.cfg.lr, min_delta=self.cfg.min_delta, patience=self.cfg.patience, verbose=self.cfg.verbose)
          
-            if self.cfg.holdout>0:
-                self.models_tmp[j] = model_instance
-                self.holdout_MSE[j] = model_instance.holdout_loss
-            else:
-                model_instance.in_sample_predictions()
-                self.models_tmp[j] = model_instance
+            model_instance.in_sample_predictions()
+            self.models_tmp[j] = model_instance
 
-                #saves the information criteria
-                self.BIC_list[j] = model_instance.BIC
-                self.AIC_list[j] = model_instance.AIC
+            #saves the information criteria
+            self.BIC_list[j] = model_instance.BIC
+            self.AIC_list[j] = model_instance.AIC
                     
         # Select the best initialization based on BIC (or AIC)
         best_idx_BIC = int(np.argmin(self.BIC_list))
         best_idx_AIC = int(np.argmin(self.AIC_list))
-        best_idx_holdout = int(np.argmin(self.holdout_MSE))
-        
-        
-        # # retrain the best model on the full data (train + val)
-        # if self.holdout > 0:
-            
-        #     if hasattr(self.factory, '_cache'):
-        #         try:
-        #             self.factory._cache.clear()
-        #         except Exception:
-        #             self.factory._cache = {}
-                
-        #     self.factory.x_train = {0: self.temp, 1: self.precip}
-        #     self.factory.y_train = self.growth
-        #     self.factory.x_val = None
-        #     self.factory.y_val = None
-        #     self.factory.node = self.node
-        #     self.factory.holdout=0
-            
-        #     tf.random.set_seed(self.seed_value + best_idx_holdout)
-        #     np.random.default_rng(self.seed_value + best_idx_holdout)
-        #     random.seed(self.seed_value + best_idx_holdout)
-
-         
-                
-        #     best_model=self.factory.get_model()
-
-        #     best_model.fit(lr=self.lr, min_delta=self.min_delta, patience=self.patience, verbose=self.verbose)
     
-        #     self.models_tmp[best_idx_holdout] = best_model
-        
+
         
         #only save the model parameters if the data is the real data, and not simulated data
         if self.data is None:
-            
             # Create directory if it doesn't exist
             path=f"results/Model Parameters/IC/{datetime.today().strftime('%Y-%m-%d')}/{self.node}.weights.h5"
             dir_path = os.path.dirname(path)
             os.makedirs(dir_path, exist_ok=True)
 
-            self.models_tmp[best_idx_holdout].save_params(path)
-            return self.holdout_MSE[best_idx_holdout], self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node
+            self.models_tmp[best_idx_BIC].save_params(path)
+            return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node
         else: #Monte carlo simulation
             best_surface=self.models_tmp[best_idx_BIC].model_visual
             country_FE = self.models_tmp[best_idx_BIC].alpha
-            return self.holdout_MSE[best_idx_holdout], self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node, best_surface, country_FE 
-
+            return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node, best_surface, country_FE 
+        
+        
+        
     def setup_model_params(self):
          #inistialize params
         if self.cfg.holdout > 0:

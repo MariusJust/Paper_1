@@ -49,18 +49,11 @@ class MultivariateModel:
         Preprocess(self)
         
         # Create model instance for each region
-        regions=Regions(self, regions=self.regions)
-        regions.SetupRegionalModel()
+
+        Regions(self, regions=self.regions).SetupRegionalModel() 
         
-           
     
     def get_model(self):
-        
-        # tf.keras.backend.clear_session()
-    
-        # # Build model fresh
-        # self._model_definition()
-        # return self
         
         key = tuple(self.node)
         if key not in self._cache:
@@ -79,81 +72,31 @@ class MultivariateModel:
             * verbose:       verbosity mode for optimization.
         """
       
-      
-            
     
-        if self.within_transform==True:
-            #compute p matrix on whole data
-            P_helper_full=WithinHelper(self.input_data_temp)
-            P_matrix_full=P_helper_full.calculate_P_matrix()
-            p_tensor=tf.convert_to_tensor(P_matrix_full, dtype=tf.float32)
+        # y_target= tf.reshape(self.targets[~self.masks], (1, -1, 1))
+        self.model.compile(optimizer=Adam(lr), loss=self.loss_list, loss_weights=[1 / self.no_regions] * self.no_regions)
 
 
-            y_true_target_train=tf.matmul(p_tensor, tf.cast(tf.reshape(self.targets[~self.Mask], (1, -1, 1)), dtype=tf.float32))[:, :self.noObs['train'], :]
+        callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
+                                restore_best_weights=True, verbose=verbose)
             
-            if self.holdout>0:
-            
-                y_true_target_val=tf.matmul(p_tensor, tf.cast(tf.reshape(self.targets[~self.Mask], (1, -1, 1)), dtype=tf.float32))[:, self.noObs['train']:, :]
+                    ]
 
-                n_obs_holdout= self.noObs['global'] - self.noObs['train']
-            
-                self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=p_tensor, n_holdout=n_obs_holdout))
-                
-   
-                # if n_obs_holdout>0:
-                callbacks = [EarlyStopping(monitor='val_loss', mode='min', min_delta=min_delta, patience=patience,
-                                    restore_best_weights=True, verbose=verbose)
-                ]
-                #validation data preprocessing
-                x_train_val = [self.input_data_temp_train_val, self.input_data_precip_train_val]
-                x_val = [self.input_data_temp_val, self.input_data_precip_val]
-                
+        x_train = [self.input_data_temp, self.input_data_precip]
+        self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
 
-                
-                self.model.fit(x_train_val, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False, validation_data=(x_val, y_true_target_val))
-                self.holdout_loss = np.min(self.model.history.history['val_loss'])
-            # else:
-                   
-        
-            #     self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=p_tensor, n_holdout=0))
-
-
-            #     callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
-            #                         restore_best_weights=True, verbose=verbose)
-                    
-            #             ]
-
-            #     x_train = [self.input_data_temp, self.input_data_precip]
-            #     self.model.fit(x_train, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
-            
-            #drop p matrix to save memory
-            del p_tensor
-        else:
-           
-            y_true_target_train= tf.reshape(self.targets[~self.Mask], (1, -1, 1))
-            self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=None, n_holdout=0))
-
-
-            callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
-                                   restore_best_weights=True, verbose=verbose)
-                
-                     ]
-
-            x_train = [self.input_data_temp, self.input_data_precip]
-            self.model.fit(x_train, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
- 
         #metrics
         self.in_sample_loss = self.model.history.history['loss']
     
         self.best_weights = self.model.get_weights()
         self.epochs = self.model.history.epoch
         
+        
+        #saving fixed effects
+        for i in range(self.no_regions):
+                self.alpha[self.regions[i]] = pd.DataFrame(self.country_FE_layer[i].weights[0].numpy().T)
+                self.alpha[self.regions[i]].columns = self.individuals[self.regions[i]][1:]
 
-        #fixed effects
-        # self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
-        # self.alpha.columns = self.individuals['global'][1:196]
-        # self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
-        # self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:196], inplace=True)
         
     def load_params(self, filepath):
         """
@@ -165,14 +108,11 @@ class MultivariateModel:
 
         self.model.load_weights(filepath)
         self.params = self.model.get_weights()
-        if self.within_transform:
-            pass
-        else:
-            # loading fixed effects estimates
-            self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
-            self.alpha.columns = self.individuals['global'][1:self.N['global']]
-            self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
-            self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:self.N['global']], inplace=True)
+      
+        self.alpha[self.regions[i]] = pd.DataFrame(self.country_FE_layer[i].weights[0].numpy().T)
+        self.alpha[self.regions[i]].columns = self.individuals[self.regions[i]][1:]
+
+    
 
     def save_params(self, filepath):
         """
@@ -190,38 +130,39 @@ class MultivariateModel:
         Making in-sample predictions.
 
         """
-        
-
-        # Generate in-sample predictions using the model
         in_sample_preds = self.model([self.input_data_temp, self.input_data_precip])
-
-        # Initialize aggregation variable
+        noObs_tmp = 0
         MSE = 0
         
+        for region in self.regions:
+                self.in_sample_pred[region] = self.y_train[region].copy()
+                self.in_sample_pred[region].iloc[:, :] = np.array(in_sample_preds[self.regions.index(region)][0, :, :])
 
-    
-        # Copy the structure of the observed global data
-        self.in_sample_pred['global'] = self.y_train['global'].copy()
+                if self.regions.index(region) == 0:
+                    in_sample_pred_global = self.in_sample_pred[region]
+                    in_sample_global = self.y_train_df[region]
+                else:
+                    in_sample_pred_global = pd.concat([in_sample_pred_global, self.in_sample_pred[region]], axis=1)
+                    in_sample_global = pd.concat([in_sample_global, self.y_train_df[region]], axis=1)
+                    
+                noObs_tmp = noObs_tmp + self.noObs[region]
+                mean_growth = np.nanmean(np.reshape(np.array(in_sample_global), (-1)))
+        
+                SST = np.nansum((in_sample_global- mean_growth) ** 2)
+                SSR = np.nansum((in_sample_pred_global - mean_growth) ** 2)
+                SSE = np.nansum((in_sample_global - in_sample_pred_global) ** 2)
 
-        # Replace the copied data with the in-sample predictions
-        self.in_sample_pred['global'].iloc[:, :] = np.array(in_sample_preds[0, :, 0:self.N['global']])
+                self.R2[region] = SSR / SST
+                MSE = MSE + SSE / self.noObs[region]
 
-        # Flatten the prediction and training data to vectors
-        pred_vector = np.reshape(np.array(self.in_sample_pred['global']), (-1))
-        train_vector = np.reshape(np.array(self.y_train['global']), (-1))
-
-        # Store the global predictions and actuals for comparison
-        in_sample_pred_global = pred_vector
-        in_sample_global = train_vector
-    
-        SSE = np.nansum((in_sample_global - in_sample_pred_global) ** 2)
-
-        MSE = SSE / self.noObs['global']
-    
-        self.BIC = (np.log(MSE))*self.noObs['global'] + self.m * np.log(self.noObs['global']) 
-        self.AIC= (np.log(MSE))*self.noObs['global'] + 2 * self.m
-
+   
+        self.BIC = np.log(MSE)*noObs_tmp + self.m * np.log(noObs_tmp)
+        self.AIC = np.log(MSE)*noObs_tmp + 2 * self.m
+        
         return in_sample_preds
+
+ 
+
 
     
         
