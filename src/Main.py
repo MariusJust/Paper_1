@@ -19,7 +19,7 @@ def main(cfg: DictConfig):
     
     # Save the configuration
     path = f"results/config/{inst.model_selection}/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
-    save_yaml(path, OmegaConf.to_yaml(cfg.instance, sort_keys=False))
+    save_yaml(path, pretty_yaml=OmegaConf.to_yaml(cfg.instance, sort_keys=False), raw_yaml=OmegaConf.to_container(cfg.instance, resolve=True))
     
     # return results
     return None

@@ -77,8 +77,8 @@ class Multiprocess:
                     self.storage[node] = [cv_error]
                 else:
                     print(f"finished node {i}")
-                    holdout_error, bic, aic, node = result
-                    self.storage[node] = [bic,aic, holdout_error]
+                    bic, aic, node = result
+                    self.storage[node] = [bic,aic]
             print("All nodes have been processed or timed out.")
             pool.terminate()
             pool.join()
@@ -90,8 +90,8 @@ class Multiprocess:
         if self.cfg.formulation == 'regional':
             from models.regional_model.information_criteria.run_experiment_ic import MainLoop as MainLoop
             model_loop = MainLoop(self, node)
-            Holdout_error, BIC, AIC, node= model_loop.run_experiment()
-            return Holdout_error, BIC, AIC, node
+            BIC, AIC, node= model_loop.run_experiment()
+            return BIC, AIC, node
         # else:
         #     if self.Model_selection == 'CV':
         #         from models.global_model.cross_validation.run_experiment_cv import MainLoop as MainLoop

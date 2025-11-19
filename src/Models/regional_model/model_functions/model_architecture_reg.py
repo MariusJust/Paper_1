@@ -29,7 +29,7 @@ class Regions:
         
         self.parent.model = Model(inputs=[self.parent.inputs_temp, self.parent.inputs_precip], outputs=self.parent.output_matrix)  
 
-        self.parent.m=Count_params(self.parent.model)
+        self.parent.m=Count_params(self.parent)
         
         # compute the visual model for each region
         self.parent.model_visual={}

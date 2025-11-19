@@ -109,10 +109,13 @@ class MultivariateModel:
         self.model.load_weights(filepath)
         self.params = self.model.get_weights()
       
-        self.alpha[self.regions[i]] = pd.DataFrame(self.country_FE_layer[i].weights[0].numpy().T)
-        self.alpha[self.regions[i]].columns = self.individuals[self.regions[i]][1:]
+        for i, region in enumerate(self.regions):
+            self.alpha[self.regions[i]] = pd.DataFrame(self.country_FE_layer[i].weights[0].numpy().T)
+            self.alpha[self.regions[i]].columns = self.individuals[self.regions[i]][1:]
 
-    
+            self.beta[self.regions[i]] = pd.DataFrame(self.time_FE_layer[i].weights[0].numpy())
+            self.beta[self.regions[i]].set_index(self.time_periods[self.time_periods_na[self.regions[i]] + 1:], inplace=True)
+
 
     def save_params(self, filepath):
         """

@@ -15,6 +15,9 @@ class MainLoop:
         self.cfg=parent.cfg
         self.data=parent.data
         self.node= node
+        self.models_tmp = np.zeros(self.cfg.no_inits, dtype=object)
+        self.BIC_list = np.zeros(self.cfg.no_inits)
+        self.AIC_list = np.zeros(self.cfg.no_inits)
         
         #build a factory for the model, so we don't have to re-initialize the model each time
         self.factory = Model(
