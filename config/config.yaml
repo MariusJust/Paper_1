@@ -16,7 +16,7 @@ instance:
   n_countries: 196
   time_periods: 63
   country_trends: False
-  dynamic_model: False
+  dynamic_model: True
   holdout: 0
   within_transform: False
   add_fe: True

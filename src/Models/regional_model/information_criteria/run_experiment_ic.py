@@ -61,7 +61,7 @@ class MainLoop:
             #saves the information criteria
             self.BIC_list[j] = model_instance.BIC
             self.AIC_list[j] = model_instance.AIC
-                    
+            print(f"Initialization {j+1}/{self.cfg.no_inits} for node {self.node} done")    
         # Select the best initialization based on BIC (or AIC)
         best_idx_BIC = int(np.argmin(self.BIC_list))
         best_idx_AIC = int(np.argmin(self.AIC_list))

@@ -22,7 +22,7 @@ class Vectorize(Layer):
             
         if self.variable=='time':
             time_periods=tf.reshape(self.time_periods, (1, -1, 1)) - (self.time_periods[0] - 1)
-            time_mat = tf.repeat(time_periods, repeats=self.N['global'], axis=2)
+            time_mat = tf.repeat(time_periods, repeats=self.N, axis=2)
             var_clean = tf.reshape(tf.cast(time_mat[~mask], dtype=np.float32), (1, -1, 1))
 
         else:

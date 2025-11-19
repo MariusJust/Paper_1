@@ -1,3 +1,6 @@
+from utils.miscelaneous import turn_off_warnings
+turn_off_warnings()
+
 from utils import save_numpy, save_yaml, Multiprocess
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -29,9 +32,6 @@ if __name__ == "__main__":
     import multiprocessing as mp
     import os
     mp.set_start_method("spawn", force=True)
-    
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""     # comment this out if you need GPUs
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"   # quiet TF logging (optional)
 
     main()
 
