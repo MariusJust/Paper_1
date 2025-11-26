@@ -39,12 +39,12 @@ class Multiprocess:
         self.data = data
 
     def run(self):
-        # if self.Model_selection == 'CV':
-        #    build_arg_list_cv(self)
-        # elif self.Model_selection == 'IC':
-        #    build_arg_list_ic(self)
-        # else:
-        #     raise ValueError("Model_selection must be either 'CV' or 'IC'")
+        if self.Model_selection == 'CV':
+           build_arg_list_cv(self)
+        elif self.Model_selection == 'IC':
+           build_arg_list_ic(self)
+        else:
+            raise ValueError("Model_selection must be either 'CV' or 'IC'")
         
         
         print(f"Starting parallel processing with {self.cfg.n_process} processes...")
@@ -92,20 +92,20 @@ class Multiprocess:
             model_loop = MainLoop(self, node)
             BIC, AIC, node= model_loop.run_experiment()
             return BIC, AIC, node
-        # else:
-        #     if self.Model_selection == 'CV':
-        #         from models.global_model.cross_validation.run_experiment_cv import MainLoop as MainLoop
-        #         model_loop = MainLoop(*args)
-        #         cv_error, node, *unused = model_loop.run_experiment()
-        #         return cv_error, node
-        #     else:  
-        #         from models.global_model.information_criteria.run_experiment_ic import MainLoop as MainLoop
-        #         model_loop = MainLoop(*args)
-        #         if args[-1] is not None:
-        #             # Monte Carlo experiment
-        #             Holdout_error, BIC, AIC, node, _, _ = model_loop.run_experiment()
-        #         else:
-        #             Holdout_error, BIC, AIC, node= model_loop.run_experiment()
-        #         return Holdout_error, BIC, AIC, node
+        else:
+            if self.Model_selection == 'CV':
+                from models.global_model.cross_validation.run_experiment_cv import MainLoop as MainLoop
+                model_loop = MainLoop(*args)
+                cv_error, node, *unused = model_loop.run_experiment()
+                return cv_error, node
+            else:  
+                from models.global_model.information_criteria.run_experiment_ic import MainLoop as MainLoop
+                model_loop = MainLoop(*args)
+                if args[-1] is not None:
+                    # Monte Carlo experiment
+                    Holdout_error, BIC, AIC, node, _, _ = model_loop.run_experiment()
+                else:
+                    Holdout_error, BIC, AIC, node= model_loop.run_experiment()
+                return Holdout_error, BIC, AIC, node
 
     

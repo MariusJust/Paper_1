@@ -71,7 +71,7 @@ class MainLoop:
         #only save the model parameters if the data is the real data, and not simulated data
         if self.data is None:
             # Create directory if it doesn't exist
-            path=f"results/Model Parameters/IC/{datetime.today().strftime('%Y-%m-%d')}/{self.node}.weights.h5"
+            path=f"results/Model Parameters/{self.cfg.formulation}/{datetime.today().strftime('%Y-%m-%d')}/{self.node}.weights.h5"
             dir_path = os.path.dirname(path)
             os.makedirs(dir_path, exist_ok=True)
 

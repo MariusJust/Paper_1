@@ -3,6 +3,7 @@ from tensorflow.keras.layers import Input
 
 
 def Visual_model(self, region_model):
+    
     if self.dynamic_model:
         input_x_pred  = Input(shape=(1, None, 3), name='X_in')
     else:
