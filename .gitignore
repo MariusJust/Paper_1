@@ -15,5 +15,5 @@ outputs/
 debug.py
 .venv/
 results/
-*.ipynb
+
 
