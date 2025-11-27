@@ -27,14 +27,15 @@ class Multiprocess:
         self.cv_approach = cfg.cv_approach
         self.penalty = cfg.penalty
         self.timeout_per_node = cfg.timeout_per_node
-        self.n_countries = cfg.n_countries
-        self.time_periods = cfg.time_periods
+        # self.n_countries = cfg.n_countries
+        # self.time_periods = cfg.time_periods
         self.data = data
         self.country_trends = cfg.country_trends
         self.dynamic_model = cfg.dynamic_model
         self.holdout=cfg.holdout
         self.within_transform=cfg.within_transform
-
+        self.data_source = cfg.data_source
+        
     def run(self):
         if self.Model_selection == 'CV':
            build_arg_list_cv(self)

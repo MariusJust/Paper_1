@@ -12,10 +12,11 @@ def build_arg_list_cv(self):
         self.dropout,
         self.n_splits, 
         self.cv_approach, 
-        self.n_countries, 
-        self.time_periods,
+        # self.n_countries, 
+        # self.time_periods,
         self.country_trends,
         self.dynamic_model,
+        self.data_source,
         self.data
     ) for i in range(len(self.nodes_list))]
 
@@ -30,12 +31,12 @@ def build_arg_list_ic(self):
         self.patience, 
         self.verbose, 
         self.dropout,
-        self.n_countries, 
-        self.time_periods,
+      
         self.country_trends,
         self.dynamic_model,
         self.holdout,
         self.within_transform,
+        self.data_source,
         self.data
         ) for i in range(len(self.nodes_list))]
             

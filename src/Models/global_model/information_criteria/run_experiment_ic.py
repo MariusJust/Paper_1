@@ -10,7 +10,7 @@ from datetime import datetime
 turn_off_warnings()
 
 class MainLoop:
-    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, n_countries, time_periods, country_trends, dynamic_model, holdout, within_transform, data=None):
+    def __init__(self, node, no_inits, seed_value, lr, min_delta, patience, verbose, dropout, country_trends, dynamic_model, holdout, within_transform, data_source, data=None):
         self.node = node
         self.no_inits = no_inits
         self.seed_value = seed_value
@@ -28,6 +28,7 @@ class MainLoop:
         self.dynamic_model = dynamic_model
         self.holdout=holdout
         self.within_transform=within_transform
+        self.data_source = data_source
         
        
         #build a factory for the model, so we don't have to re-initialize the model each time
@@ -52,7 +53,7 @@ class MainLoop:
             from simulations.simulation_functions import Pivot
             self.growth, self.precip, self.temp = Pivot(data)
         else:   
-            self.growth, self.precip, self.temp = load_data('IC', n_countries, time_periods)
+            self.growth, self.precip, self.temp, self.n_countries, self.time_periods = load_data('IC', self.data_source)
    
    
     def run_experiment(self):   

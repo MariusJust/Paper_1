@@ -12,13 +12,14 @@ instance:
   cv_approach: 'trend' # 'full' or 'trend' or 'simple'
   penalty: 0
   timeout_per_node: 1000
-  n_countries: 196
-  time_periods: 63
+  # n_countries: 196
+  # time_periods: 63
   country_trends: False
   dynamic_model: False
-  holdout: 5
-  within_transform: True
-  add_fe: False
+  holdout: 0
+  within_transform: False
+  add_fe: True
+  data_source: 'ee' # 'ee' or 'worldbank'
   nodes_list:
     - (2,)
     - (4,)
