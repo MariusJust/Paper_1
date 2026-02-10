@@ -1,68 +1,0 @@
-
-======== Running Monte Carlo for linear data using model: NN ============
-
-=== Running initial training loop ===
-Processing nodes:   2%|▏         | 1/54 [26:39<23:32:46, 1599.36s/node]Processing nodes: 100%|██████████| 54/54 [26:39<00:00, 29.62s/node]    
-
-=== Running 100 Monte Carlo itterations for model NN with best node: (32, 8) ===
-
-======== Running Monte Carlo for Burke data using model: NN ============
-
-=== Running initial training loop ===
-Processing nodes:   2%|▏         | 1/54 [29:45<26:17:32, 1785.90s/node]Processing nodes: 100%|██████████| 54/54 [29:45<00:00, 33.07s/node]    
-
-=== Running 100 Monte Carlo itterations for model NN with best node: (16,) ===
-
-======== Running Monte Carlo for Leirvik data using model: NN ============
-
-=== Running initial training loop ===
-Processing nodes:   2%|▏         | 1/54 [29:36<26:09:17, 1776.57s/node]Processing nodes: 100%|██████████| 54/54 [29:36<00:00, 32.90s/node]    
-
-=== Running 100 Monte Carlo itterations for model NN with best node: (16, 16) ===
-
-======== Running Monte Carlo for Trig data using model: NN ============
-
-=== Running initial training loop ===
-Processing nodes:   2%|▏         | 1/54 [30:03<26:33:14, 1803.66s/node]Processing nodes: 100%|██████████| 54/54 [30:03<00:00, 33.40s/node]    
-
-=== Running 100 Monte Carlo itterations for model NN with best node: (32, 16) ===
-
-All specifications processed.
-
-======== Running Monte Carlo for linear data using model: Quadratic ============
-
-=== Running 100 Monte Carlo itterations for model Quadratic ===
-
-======== Running Monte Carlo for Burke data using model: Quadratic ============
-
-=== Running 100 Monte Carlo itterations for model Quadratic ===
-
-======== Running Monte Carlo for Leirvik data using model: Quadratic ============
-
-=== Running 100 Monte Carlo itterations for model Quadratic ===
-
-======== Running Monte Carlo for Trig data using model: Quadratic ============
-
-=== Running 100 Monte Carlo itterations for model Quadratic ===
-
-All specifications processed.
-
-======== Running Monte Carlo for linear data using model: Interactive ============
-
-=== Running 100 Monte Carlo itterations for model Interactive ===
-
-======== Running Monte Carlo for Burke data using model: Interactive ============
-
-=== Running 100 Monte Carlo itterations for model Interactive ===
-
-======== Running Monte Carlo for Leirvik data using model: Interactive ============
-
-=== Running 100 Monte Carlo itterations for model Interactive ===
-
-======== Running Monte Carlo for Trig data using model: Interactive ============
-
-=== Running 100 Monte Carlo itterations for model Interactive ===
-
-All specifications processed.
-
-Monte Carlo simulations completed for all models.

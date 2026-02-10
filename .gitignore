@@ -18,3 +18,6 @@ results/
 drivers/
 runs/
 notebooks/scratch/
+!results/paper/
+data/
+!data/MainData.xlsx
