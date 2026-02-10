@@ -34,7 +34,6 @@ def main(cfg: DictConfig):
 if __name__ == "__main__":    
     
     import multiprocessing as mp
-    import os
     mp.set_start_method("spawn", force=True)
 
     main()
