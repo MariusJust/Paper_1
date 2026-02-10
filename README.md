@@ -22,25 +22,8 @@ The codebase is structured to support full replication of all empirical results,
 
 --- -->
 
-## Repository Structure
-Paper_1/
-├── Benchmark/ # Parametric benchmark models and comparison routines
-├── config/ # Configuration files (model specs, training settings)
-├── data/
-│ ├── raw/ # Raw input data (GDP, climate, population grids)
-│ └── processed/ # Cleaned country-year panel datasets
-├── notebooks/ # Exploratory analysis and diagnostic notebooks
-├── results/ # Saved model outputs, figures, and tables
-├── scripts/ # Executable scripts for training, evaluation, and plotting
-├── src/ # Core source code (models, training loops, utilities)
-├── .devcontainer/ # Reproducible development environment
-├── requirements.txt # Python dependencies
-└── README.md
 
-
-
-
-##Contact
+## Contact
 
 Marius Just
 mjust@econ.au.dk
