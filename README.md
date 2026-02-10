@@ -5,22 +5,25 @@ This repository contains the full source code, data pipeline, and replication ma
 
 The project implements a flexible neural-network–based panel data model to study how temperature and precipitation jointly affect economic growth. The framework relaxes restrictive parametric assumptions common in the climate–growth literature while retaining country and time fixed effects and a rigorous model-selection strategy.
 
----
 
-<!-- ## Project Overview
+## Reproducing the environment (VS Code Devcontainer)
 
-Empirical studies of climate impacts on economic growth typically rely on low-order polynomial specifications with prespecified interaction terms. While tractable, these models impose strong global shape restrictions and are frequently used for forward-looking assessment and policy analysis, where extrapolation beyond the estimation sample is unavoidable.
+1. Install Docker desktop and VS Code
+2. Install the “Dev Containers” extension in VS Code
+3. Open this repository in VS Code and make sure you have a running engine in Docker
+4. Press `F1` → **Dev Containers: Reopen in Container** 
 
-This project develops a fully data-driven alternative using feedforward neural networks to approximate the unknown climate–growth relationship in a large panel of countries and years. The approach:
+Dependencies install automatically via `postCreateCommand`.
 
-- allows for rich nonlinearities and interactions between temperature and precipitation,  
-- retains country and time fixed effects,  
-- uses an expanding-window cross-validation scheme aligned with out-of-sample predictive objectives, and  
-- produces interpretable prediction surfaces comparable to existing parametric benchmarks.
+## Reproducing the environment (Docker)
 
-The codebase is structured to support full replication of all empirical results, figures, and simulation exercises in the paper.
+1. Install docker on your machine 
+2. run "docker build -t paper1 -f .devcontainer/Dockerfile ." from the command line 
+3. run "docker run --rm -it -v "$(pwd)":/workspaces/Paper_1 -w /workspaces/Paper_1 paper1" from the command line. 
 
---- -->
+## Reproducing the results 
+
+In the notebooks folder there exist 3 files for the global model, regional model and Monte Carlo simulation respectively. By running these notebooks, you can recreate the results shown in the paper. Note that the network weights are available in the results folder
 
 
 ## Contact
