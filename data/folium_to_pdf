@@ -1,0 +1,109 @@
+# Paste this whole cell into a Jupyter notebook and run it.
+# It will convert the page at URL -> PDF using Playwright (Chromium).
+import subprocess, sys, time, asyncio
+from pathlib import Path
+
+URL = "http://127.0.0.1:5500/austria_stations_1990.html"   # change if needed
+OUT_PDF = "austria_stations.pdf"
+HEADLESS = True            # set False to watch Chromium render
+MAP_DETECT_TIMEOUT = 20    # seconds
+TILES_TIMEOUT = 45         # seconds
+
+# install if missing
+def pip_install(pkg):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+
+try:
+    import nest_asyncio
+    from playwright.async_api import async_playwright
+except Exception:
+    pip_install("nest_asyncio")
+    pip_install("playwright")
+    import nest_asyncio
+    from playwright.async_api import async_playwright
+    # ensure browsers installed (first-time only)
+    subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+
+nest_asyncio.apply()
+
+async def _render_to_pdf(url, out_pdf):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=HEADLESS)
+        context = await browser.new_context(viewport={"width":1400,"height":1000})
+        page = await context.new_page()
+        page.on("console", lambda msg: print("[PAGE]", msg.text()))
+        print("Opening", url)
+        await page.goto(url, wait_until="domcontentloaded")
+
+        # try detect map var 'map_<id>' or any L.Map instance
+        map_var = None
+        try:
+            handle = await page.wait_for_function(
+                """() => {
+                    for (const k of Object.keys(window)) {
+                        if (k.startsWith('map_') && typeof window[k] !== 'undefined') return k;
+                    }
+                    return null;
+                }""",
+                timeout=MAP_DETECT_TIMEOUT*1000
+            )
+            map_var = await handle.json_value()
+        except Exception:
+            map_var = None
+
+        if not map_var:
+            try:
+                handle = await page.wait_for_function(
+                    """() => {
+                        for (const k of Object.keys(window)) {
+                            try { if (window[k] && window[k] instanceof L.Map) return k; } catch(e){}
+                        }
+                        return null;
+                    }""",
+                    timeout=MAP_DETECT_TIMEOUT*1000
+                )
+                map_var = await handle.json_value()
+            except Exception:
+                map_var = None
+
+        if map_var:
+            print("Detected map variable:", map_var)
+            await page.evaluate(f"window['{map_var}'] && window['{map_var}'].invalidateSize && window['{map_var}'].invalidateSize();")
+        else:
+            print("No named map var found; attempting generic invalidateSize on any candidate.")
+            try:
+                await page.evaluate("""
+                    try {
+                        for (const k of Object.keys(window)) {
+                            try {
+                                const v = window[k];
+                                if (v && typeof v === 'object' && v.invalidateSize) { try { v.invalidateSize(); } catch(e){} }
+                            } catch(e){}
+                        }
+                    } catch(e){}
+                """)
+            except Exception:
+                pass
+
+        # wait for tiles (if any)
+        try:
+            await page.wait_for_function(
+                """() => {
+                    const tiles = Array.from(document.querySelectorAll('.leaflet-tile'));
+                    if (tiles.length === 0) return true;
+                    return tiles.every(t => t.complete && (t.naturalWidth > 0));
+                }""",
+                timeout=TILES_TIMEOUT*1000
+            )
+            print("Tiles loaded (or none present).")
+        except Exception as e:
+            print("Warning: tile wait timed out or failed:", e)
+
+        # short pause and then print
+        await asyncio.sleep(0.8)
+        await page.pdf(path=out_pdf, format="A4", print_background=True, margin={"top":"12mm","bottom":"12mm","left":"10mm","right":"10mm"})
+        await browser.close()
+        print("Saved PDF:", out_pdf)
+
+# run it in this notebook's loop
+asyncio.get_event_loop().run_until_complete(_render_to_pdf(URL, OUT_PDF))

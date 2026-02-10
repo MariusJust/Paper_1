@@ -1,9 +1,8 @@
 from tensorflow.keras.initializers import he_normal, Zeros
 from tensorflow.keras.layers import Dense, Dropout
-from tensorflow.keras import regularizers
 
 def create_hidden_layers(self, input_first):
-    
+    ''' Create hidden layers based on the model's depth and node configuration. '''
     
     self.hidden_1 = create_hidden_layer(self, self.node[0])
     hidden_1 = self.hidden_1(input_first)
@@ -34,8 +33,7 @@ def create_hidden_layer(self, node):
     kernel_initializer = he_normal()
     bias_initializer = Zeros()
     hidden_layer = Dense(node, activation='swish', use_bias=True,
-                            kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, 
-                            kernel_regularizer=regularizers.L2(self.penalty))
+                            kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
     
     
     return hidden_layer

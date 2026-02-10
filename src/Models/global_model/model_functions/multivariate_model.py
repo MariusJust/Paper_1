@@ -1,8 +1,9 @@
 import numpy as np
 import tensorflow as tf
 import pandas as pd 
+import os 
 
-from .helper_functions import initialize_parameters, Preprocess, individual_loss, HoldoutMonitor, WithinHelper
+from .helper_functions import initialize_parameters, Preprocess, individual_loss,  WithinHelper
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from .model_architecture import SetupGlobalModel
@@ -12,7 +13,7 @@ class MultivariateModel:
     Class implementing the static neural network model.
     """
 
-    def __init__(self, node, x_train, y_train, dropout, penalty, country_trends, dynamic_model, within_transform, y_val=None, x_val=None, holdout=0):
+    def __init__(self, node, x_train, y_train, dropout, country_trends, dynamic_model, within_transform, x_train_val=None, y_train_val=None, y_val=None, x_val=None, holdout=0, add_fe=True):
         """
         Instantiating class.
 
@@ -28,15 +29,17 @@ class MultivariateModel:
         self.node = node
         self.x_train = x_train
         self.y_train = y_train
+        self.x_train_val = x_train_val
+        self.y_train_val = y_train_val
+        self.y_val = y_val
+        self.x_val = x_val
         self.dropout = dropout
-        self.penalty = penalty
         self._cache = {}
         self.country_trends = country_trends
         self.dynamic_model = dynamic_model
-        self.y_val = y_val
-        self.x_val = x_val
         self.holdout = holdout
         self.within_transform = within_transform
+        self.add_fe = add_fe  #whether to add fixed effects or not
 
 
     def _model_definition(self):
@@ -51,11 +54,17 @@ class MultivariateModel:
         SetupGlobalModel(self)
         
     def get_model(self):
-        key = tuple(self.node)
-        if key not in self._cache:
-            self._model_definition()
-            self._cache[key] = self
-        return self._cache[key]
+        tf.keras.backend.clear_session()
+    
+        # Build model fresh
+        self._model_definition()
+        return self
+        
+        # key = tuple(self.node)
+        # if key not in self._cache:
+        #     self._model_definition()
+        #     self._cache[key] = self
+        # return self._cache[key]
       
     def fit(self, lr, min_delta, patience, verbose):
         """
@@ -68,59 +77,81 @@ class MultivariateModel:
             * verbose:       verbosity mode for optimization.
         """
       
-        # if self.within_transform:
-        #     self.P_matrix = WithinHelper(self.input_data_temp).calculate_P_matrix()
-        #     self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, P_matrix=self.P_matrix))
-        # else:   
+      
             
-            
-        self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask))
+    
+        if self.within_transform==True:
+            #compute p matrix on whole data
+            P_helper_full=WithinHelper(self.input_data_temp)
+            P_matrix_full=P_helper_full.calculate_P_matrix()
+            p_tensor=tf.convert_to_tensor(P_matrix_full, dtype=tf.float32)
 
 
+            y_true_target_train=tf.matmul(p_tensor, tf.cast(tf.reshape(self.targets[~self.Mask], (1, -1, 1)), dtype=tf.float32))[:, :self.noObs['train'], :]
+            
+            if self.holdout>0:
+            
+                y_true_target_val=tf.matmul(p_tensor, tf.cast(tf.reshape(self.targets[~self.Mask], (1, -1, 1)), dtype=tf.float32))[:, self.noObs['train']:, :]
+
+                n_obs_holdout= self.noObs['global'] - self.noObs['train']
+            
+                self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=p_tensor, n_holdout=n_obs_holdout))
+                
+   
+                # if n_obs_holdout>0:
+                callbacks = [EarlyStopping(monitor='val_loss', mode='min', min_delta=min_delta, patience=patience,
+                                    restore_best_weights=True, verbose=verbose)
+                ]
+                #validation data preprocessing
+                x_train_val = [self.input_data_temp_train_val, self.input_data_precip_train_val]
+                x_val = [self.input_data_temp_val, self.input_data_precip_val]
+                
+
+                
+                self.model.fit(x_train_val, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False, validation_data=(x_val, y_true_target_val))
+                self.holdout_loss = np.min(self.model.history.history['val_loss'])
+            # else:
+                   
         
-        callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
+            #     self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=p_tensor, n_holdout=0))
+
+
+            #     callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
+            #                         restore_best_weights=True, verbose=verbose)
+                    
+            #             ]
+
+            #     x_train = [self.input_data_temp, self.input_data_precip]
+            #     self.model.fit(x_train, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
+            
+            #drop p matrix to save memory
+            del p_tensor
+        else:
+           
+            y_true_target_train= tf.reshape(self.targets[~self.Mask], (1, -1, 1))
+            self.model.compile(optimizer=Adam(lr), loss=individual_loss(mask=self.Mask, p_matrix=None, n_holdout=0))
+
+
+            callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
                                    restore_best_weights=True, verbose=verbose)
                 
                      ]
-  
-        if self.holdout>0 and self.within_transform==True:
-            if self.x_val is not None and self.y_val is not None:
-                
-                x_train = [self.input_data_temp, self.input_data_precip]
 
-                P_train = WithinHelper(self.input_data_temp).calculate_P_matrix()
-                P_val = WithinHelper(self.input_data_temp_val).calculate_P_matrix()
-                
-                # preprojecting the validation and training targets to save memory during training
-                self.y_val_transf = tf.matmul(P_val, self.targets_val)
-
-                holdout_callback=HoldoutMonitor(self, patience=patience, min_delta=min_delta, verbose=verbose, P_matrix_train=P_train, P_matrix_val=P_val)
-                callbacks = [holdout_callback]
-                
-                
-                self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
-                # self.holdout_loss = np.min(self.model.history.history['holdout_mse'])
-            else:
-                x_train = [self.input_data_temp, self.input_data_precip]
-                self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
-                
-        else:
             x_train = [self.input_data_temp, self.input_data_precip]
-            self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
-           
+            self.model.fit(x_train, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
+ 
         #metrics
         self.in_sample_loss = self.model.history.history['loss']
-        
-        
+    
         self.best_weights = self.model.get_weights()
         self.epochs = self.model.history.epoch
-        self.params = self.model.get_weights()
+        
 
         #fixed effects
-        self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
-        self.alpha.columns = self.individuals['global'][1:196]
-        self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
-        self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:196], inplace=True)
+        # self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
+        # self.alpha.columns = self.individuals['global'][1:196]
+        # self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
+        # self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:196], inplace=True)
         
     def load_params(self, filepath):
         """
@@ -132,12 +163,14 @@ class MultivariateModel:
 
         self.model.load_weights(filepath)
         self.params = self.model.get_weights()
-       
-        # loading fixed effects estimates
-        self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
-        self.alpha.columns = self.individuals['global'][1:self.N['global']]
-        self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
-        self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:self.N['global']], inplace=True)
+        if self.within_transform:
+            pass
+        else:
+            # loading fixed effects estimates
+            self.alpha = pd.DataFrame(self.country_FE_layer.weights[0].numpy().T)
+            self.alpha.columns = self.individuals['global'][1:self.N['global']]
+            self.beta = pd.DataFrame(self.time_FE_layer.weights[0].numpy())
+            self.beta.set_index(self.time_periods[self.time_periods_not_na['global']][1:self.N['global']], inplace=True)
 
     def save_params(self, filepath):
         """
@@ -155,6 +188,8 @@ class MultivariateModel:
         Making in-sample predictions.
 
         """
+        
+
         # Generate in-sample predictions using the model
         in_sample_preds = self.model([self.input_data_temp, self.input_data_precip])
 

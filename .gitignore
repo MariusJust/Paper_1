@@ -15,5 +15,6 @@ outputs/
 debug.py
 .venv/
 results/
-*.ipynb
-
+drivers/
+runs/
+notebooks/scratch/
