@@ -14,10 +14,10 @@ __pycache__/
 outputs/
 debug.py
 .venv/
+!results/paper/
 results/
 drivers/
 runs/
 notebooks/scratch/
-!results/paper/
 data/
 !data/MainData.xlsx
