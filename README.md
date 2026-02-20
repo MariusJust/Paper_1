@@ -1,5 +1,5 @@
 
-## A Neural Network Approach to the Climate-Growth Relationship**
+## A Neural Network Approach to the Climate-Growth Relationship
 
 This repository contains the full source code, data pipeline, and replication material for the paper.
 
