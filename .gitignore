@@ -14,6 +14,13 @@ __pycache__/
 outputs/
 debug.py
 .venv/
-results/
-*.ipynb
+drivers/
+runs/
+notebooks/scratch/
 
+data/*
+!data/MainData.xlsx
+
+results/*
+!results/paper/
+!results/paper/**

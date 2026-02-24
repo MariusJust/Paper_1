@@ -36,7 +36,6 @@ class Matrixize(Layer):
 
             return mask, where, noObs, T
 
-        # tf.print(">>> Matrixize debug: n_obs:", n_obs, " self.noObs['train']:", self.noObs_train)
         chosen_mask, where, noObs, T = tf.cond(tf.equal(n_obs, self.noObs_train), train_branch, val_branch)
 
         out_shape = tf.shape(chosen_mask)
@@ -44,11 +43,6 @@ class Matrixize(Layer):
         indices = tf.cast(tf.where(where), tf.int32)
 
         updates_obs = tf.reshape(x, (-1,))
-
-        # tf.print(">>> Matrixize debug: mask.shape:", tf.shape(chosen_mask))
-        # tf.print(">>> Matrixize debug: x.shape:", tf.shape(x), " x.dtype:", x.dtype)
-        # tf.print(">>> Matrixize debug: indices.shape:", tf.shape(indices))
-        # tf.print(">>> Matrixize debug: updates_obs.shape:", tf.shape(updates_obs))
 
         scatter = tf.scatter_nd(indices, updates_obs, shape=out_shape)
         scatter = tf.cast(scatter, dtype=np.float64)

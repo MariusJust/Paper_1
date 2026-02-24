@@ -65,9 +65,8 @@ def compute_x_train_val(self):
 def compute_y_train_val(self):
 
         self.y_train_val_df['global'] = self.y_train_val['global'].copy()
-        
         self.y_train_val_transf['global'] = np.array(self.y_train_val_df['global'].copy())
-        
+            
         self.y_val_df['global'] = self.y_val['global'].copy()
         self.y_val_transf['global'] = np.array(self.y_val['global'].copy())
         
@@ -85,6 +84,10 @@ def compute_mask_train_val(self, x_train):
     self.noObs['train'] = self.N['global']* self.T - np.isnan(self.x_train_val_transf[0]['global']).sum()
 
 
+
+
+
+################################   Stats   ########################################################
 def compute_stats(arr):
         """
         Compute basic statistics on the array, ignoring NaNs.

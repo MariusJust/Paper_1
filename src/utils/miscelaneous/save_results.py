@@ -22,7 +22,7 @@ def save_numpy(filepath, array):
     np.save(filepath, array)
 
 
-def save_yaml(filepath, data):
+def save_yaml(filepath, pretty_yaml, raw_yaml):
     """
     Save data to a YAML file at the given filepath, creating directories if needed.
 
@@ -34,11 +34,17 @@ def save_yaml(filepath, data):
     dir_path = os.path.dirname(filepath)
     
     # Create directory if it doesn't exist
-    os.makedirs(dir_path)
+    os.makedirs(dir_path, exist_ok=True)
     
-    # Save the data to a YAML file with pretty formatting
+    # Save the pretty_YAML to a file 
     with open(filepath, 'w') as file:
-        yaml.dump(data, file, default_flow_style=False, sort_keys=False)
+        yaml.dump(pretty_yaml, file, default_flow_style=False, sort_keys=False)
+    
+    # Save the raw YAML data to a separate file
+    raw_filepath = filepath.replace('.yaml', '_raw.yaml')
+    
+    with open(raw_filepath, 'w') as file:
+        yaml.dump(raw_yaml, file, default_flow_style=False, sort_keys=False)
     return None
 
 def save_model_weights(filepath, model):

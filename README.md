@@ -1,17 +1,38 @@
-## Overview
-This project develops a **neural network–based panel data model** to estimate how **temperature**, **precipitation**, and other controls drive **log growth per capita** across countries worldwide. Traditional panel regressions capture fixed effects but struggle with complex nonlinearities; here we leverage the universal approximation capacity of Artificial Neural Network architectures within a fixed‑effects framework. By integrating global climate observations with economic indicators, our model uncovers nuanced climate–growth relationships.
 
-## Features
-- **Flexible Panel Neureal Network*: Implements a fixed‑effects neural network that handles unobserved heterogeneity and nonlinear interactions.  
-- **Multi‑Metric Climate Inputs**: Uses country‑level temperature and precipitation distributions to capture both mean and variance effects.  
-- **Reproducible Pipeline**: Full data ingestion, preprocessing, model trainin an´d, evaluation
-- **Configurable Experiments**: Hyperparameters and data paths managed via versioned YAML files, enabling easy experimentation.
+## A Neural Network Approach to the Climate-Growth Relationship
 
-## Data
-- **Raw data** (in `data/raw/`):
-  - **Temperature**: Monthly gridded averages from Berkeley Earth.  
-  - **Precipitation**: Global Precipitation Climatology Centre (GPCC) monthly totals.  
-  - **Economic**: World Bank log GDP per capita (PPP).  
-- **Processed data** (in `data/processed/`): cleaned, aggregated to annual country‑level panels and merged for modeling.  
-- **Note on precipitation**: Prior work often finds precipitation’s direct effect on growth statistically indistinct; our model re‑examines this within a nonlinear NN setting.
+This repository contains the full source code, data pipeline, and replication material for the paper.
+
+The project implements a flexible neural-network–based panel data model to study how temperature and precipitation jointly affect economic growth. The framework relaxes restrictive parametric assumptions common in the climate–growth literature while retaining country and time fixed effects and a rigorous model-selection strategy.
+
+
+## Reproducing the environment (VS Code Devcontainer)
+
+1. Install Docker desktop and VS Code
+2. Install the “Dev Containers” extension in VS Code
+3. Open this repository in VS Code and make sure you have a running engine in Docker
+4. Press `F1` → **Dev Containers: Reopen in Container** 
+
+Dependencies install automatically via `postCreateCommand`.
+
+## Reproducing the environment (Docker)
+
+1. Install docker on your machine 
+2. run "docker build -t paper1 -f .devcontainer/Dockerfile ." from the command line 
+3. run "docker run --rm -it -v "$(pwd)":/workspaces/Paper_1 -w /workspaces/Paper_1 paper1" from the command line. 
+
+## Reproducing the results 
+
+In the notebooks folder there exist 3 files for the global model, regional model and Monte Carlo simulation respectively. By running these notebooks, you can recreate the results shown in the paper. Note that the network weights are available in the results folder
+
+
+## Contact
+
+Marius Just
+mjust@econ.au.dk
+PhD Student, Econometrics
+Aarhus University
+
+For questions regarding the code, data construction, or replication, please open an issue or contact directly.
+
 
