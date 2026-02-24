@@ -71,19 +71,49 @@ class MultivariateModel:
             * patience:      patience to be used for optimization.
             * verbose:       verbosity mode for optimization.
         """
-      
-    
-        # y_target= tf.reshape(self.targets[~self.masks], (1, -1, 1))
-        self.model.compile(optimizer=Adam(lr), loss=self.loss_list, loss_weights=[1 / self.no_regions] * self.no_regions)
-
-
-        callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
-                                restore_best_weights=True, verbose=verbose)
+        
+        if self.holdout>0:
+            #compute p matrix on whole data
+            P_helper_regional=WithinHelper(self.input_data_temp)
+            P_list=P_helper_regional.calculate_P_matrix()
+            p_tensor=[tf.convert_to_tensor(P_list[i], dtype=tf.float32) for i in range(len(P_list))]
             
-                    ]
+            y_true_target_train=[tf.matmul(p_tensor[i], tf.cast(tf.reshape(self.targets[i][~self.masks[i]], (1, -1, 1)), dtype=tf.float32))[:, :self.noObs["train"][region], :] for i, region in enumerate(self.regions)]
+            
+            y_true_target_val=[tf.matmul(p_tensor[i], tf.cast(tf.reshape(self.targets[i][~self.masks[i]], (1, -1, 1)), dtype=tf.float32))[:, self.noObs["train"][region]:, :] for i, region in enumerate(self.regions)]
 
-        x_train = [self.input_data_temp, self.input_data_precip]
-        self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
+            n_obs_holdout= [self.noObs[region] - self.noObs["train"][region] for region in self.regions]
+        
+            self.model.compile(optimizer=Adam(lr), loss=[individual_loss(mask=self.masks[i], p_matrix=p_tensor[i], n_holdout=n_obs_holdout[i], name=f"loss_{region}") for i, region in enumerate(self.regions)], loss_weights=[1 / self.no_regions] * self.no_regions)
+            
+
+            callbacks = [EarlyStopping(monitor='val_loss', mode='min', min_delta=min_delta, patience=patience,
+                                restore_best_weights=True, verbose=verbose)
+            ]
+            
+            
+            #validation data preprocessing
+            x_train_val = [self.input_data_temp_train, self.input_data_precip_train]
+            x_val = [self.input_data_temp_val, self.input_data_precip_val]
+            
+
+            
+            self.model.fit(x_train_val, y_true_target_train, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False, validation_data=(x_val, y_true_target_val))
+            self.holdout_loss = np.min(self.model.history.history['val_loss']) 
+            
+            del p_tensor
+        else:
+        # y_target= tf.reshape(self.targets[~self.masks], (1, -1, 1))
+            self.model.compile(optimizer=Adam(lr), loss=self.loss_list, loss_weights=[1 / self.no_regions] * self.no_regions)
+
+
+            callbacks = [EarlyStopping(monitor='loss', mode='min', min_delta=min_delta, patience=patience,
+                                    restore_best_weights=True, verbose=verbose)
+                
+                        ]
+
+            x_train = [self.input_data_temp, self.input_data_precip]
+            self.model.fit(x_train, self.targets, callbacks=callbacks, batch_size=1, epochs=int(1e6), verbose=verbose, shuffle=False)
 
         #metrics
         self.in_sample_loss = self.model.history.history['loss']
@@ -93,9 +123,10 @@ class MultivariateModel:
         
         
         #saving fixed effects
-        for i in range(self.no_regions):
-                self.alpha[self.regions[i]] = pd.DataFrame(self.country_FE_layer[i].weights[0].numpy().T)
-                self.alpha[self.regions[i]].columns = self.individuals[self.regions[i]][1:]
+        if self.holdout==0:
+            for i in range(self.no_regions):
+                    self.alpha[self.regions[i]] = pd.DataFrame(self.country_FE_layer[i].weights[0].numpy().T)
+                    self.alpha[self.regions[i]].columns = self.individuals[self.regions[i]][1:]
 
         
     def load_params(self, filepath):

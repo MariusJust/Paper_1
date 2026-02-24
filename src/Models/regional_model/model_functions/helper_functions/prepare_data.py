@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from panelsplit.cross_validation import PanelSplit
+# from panelsplit.cross_validation import PanelSplit
 
 
 

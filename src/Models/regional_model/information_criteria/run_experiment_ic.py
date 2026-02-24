@@ -18,6 +18,7 @@ class MainLoop:
         self.models_tmp = np.zeros(self.cfg.no_inits, dtype=object)
         self.BIC_list = np.zeros(self.cfg.no_inits)
         self.AIC_list = np.zeros(self.cfg.no_inits)
+        self.holdout_MSE = np.zeros(self.cfg.no_inits)
         
         #build a factory for the model, so we don't have to re-initialize the model each time
         self.factory = Model(
@@ -30,13 +31,12 @@ class MainLoop:
             x_val=None,
             y_val=None
         )
-
         # Load data
         if self.data is not None: #ie we are running a Monte Carlo experiment
             from simulations.simulation_functions import Pivot
             self.growth, self.precip, self.temp = Pivot(self.data)
         else:   
-            self.growth, self.precip, self.temp = load_data('IC', self.cfg.n_countries, self.cfg.time_periods)
+            self.growth, self.precip, self.temp = load_data('IC')
    
    
     def run_experiment(self):  
@@ -55,34 +55,38 @@ class MainLoop:
             model_instance=self.factory.get_model()
             model_instance.fit(lr=self.cfg.lr, min_delta=self.cfg.min_delta, patience=self.cfg.patience, verbose=self.cfg.verbose)
          
-            model_instance.in_sample_predictions()
-            self.models_tmp[j] = model_instance
+            
+            if self.cfg.holdout>0:
+                self.models_tmp[j] = model_instance
+                self.holdout_MSE[j] = model_instance.holdout_loss
+            else:
+                model_instance.in_sample_predictions()
+                self.models_tmp[j] = model_instance
 
-            #saves the information criteria
-            self.BIC_list[j] = model_instance.BIC
-            self.AIC_list[j] = model_instance.AIC
+                #saves the information criteria
+                self.BIC_list[j] = model_instance.BIC
+                self.AIC_list[j] = model_instance.AIC
+                
             print(f"Initialization {j+1}/{self.cfg.no_inits} for node {self.node} done")    
+            
         # Select the best initialization based on BIC (or AIC)
         best_idx_BIC = int(np.argmin(self.BIC_list))
         best_idx_AIC = int(np.argmin(self.AIC_list))
+        best_idx_holdout = int(np.argmin(self.holdout_MSE))
+        
     
 
         
-        #only save the model parameters if the data is the real data, and not simulated data
-        if self.data is None:
-            # Create directory if it doesn't exist
-            path=f"results/Model Parameters/{self.cfg.formulation}/{datetime.today().strftime('%Y-%m-%d')}/{self.node}.weights.h5"
-            dir_path = os.path.dirname(path)
-            os.makedirs(dir_path, exist_ok=True)
+        # Create directory if it doesn't exist
+        path=f"runs/estimation/{datetime.today().strftime('%Y-%m-%d')}/{self.node}.weights.h5"
+        dir_path = os.path.dirname(path)
+        os.makedirs(dir_path, exist_ok=True)
 
-            self.models_tmp[best_idx_BIC].save_params(path)
-            return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node
-        else: #Monte carlo simulation
-            best_surface=self.models_tmp[best_idx_BIC].model_visual
-            country_FE = self.models_tmp[best_idx_BIC].alpha
-            return self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node, best_surface, country_FE 
-        
-        
+        self.models_tmp[best_idx_BIC].save_params(path)
+        return self.holdout_MSE[best_idx_holdout], self.BIC_list[best_idx_BIC], self.AIC_list[best_idx_AIC], self.node
+    
+    
+    
         
     def setup_model_params(self):
          #inistialize params

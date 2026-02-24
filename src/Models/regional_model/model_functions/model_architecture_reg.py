@@ -44,9 +44,17 @@ class Regions:
         self.parent.input_data_precip = [b.input_data_precip for b in self.region_builders]
         self.parent.targets = [b.target for b in self.region_builders]
         self.parent.loss_list = [b.loss_fn for b in self.region_builders]
-        self.parent.masks = [b.mask for b in self.region_builders]
-        self.parent.country_FE_layer=[b.country_FE_layer for b in self.region_builders]
-        self.parent.time_FE_layer=[b.time_FE_layer for b in self.region_builders]
+        self.parent.masks = [b.Mask for b in self.region_builders]
+        if self.holdout>0:
+            self.parent.input_data_temp_train = [b.input_data_temp_train for b in self.region_builders]
+            self.parent.input_data_precip_train = [b.input_data_precip_train for b in self.region_builders]
+            self.parent.targets_train = [b.targets_train for b in self.region_builders]
+            self.parent.input_data_temp_val = [b.input_data_temp_val for b in self.region_builders]
+            self.parent.input_data_precip_val = [b.input_data_precip_val for b in self.region_builders]
+            self.parent.targets_val = [b.targets_val for b in self.region_builders]
+        else:
+            self.parent.country_FE_layer=[b.country_FE_layer for b in self.region_builders]
+            self.parent.time_FE_layer=[b.time_FE_layer for b in self.region_builders]
         
         
     
@@ -59,15 +67,30 @@ class BuildRegion:
       for key, value in vars(parent).items():
             setattr(self, key, value)
       
-      # The input shape is (T, N), where T is the time period and N is the number of countries
-      self.input_temp = Input(shape=(self.T, self.N[region]), name=f"temp_in_{region}")
-      self.input_precip = Input(shape=(self.T, self.N[region]), name=f"precip_in_{region}")
+      self.input_temp = Input(shape=(None, self.N[region]), name=f"temp_in_{region}")
+      self.input_precip = Input(shape=(None, self.N[region]), name=f"precip_in_{region}")
       
       
-      self.input_data_temp = tf.reshape(tf.convert_to_tensor(self.x_train_transf[0][region]), (1, self.T, self.N[region]))
-      self.input_data_precip = tf.reshape(tf.convert_to_tensor(self.x_train_transf[1][region]), (1, self.T, self.N[region]))    
-      self.target = tf.reshape(tf.convert_to_tensor(self.y_train_transf[region]), (1, self.T, self.N[region])) 
-      
+      if self.x_val is not None:
+        self.input_data_temp_train = tf.reshape(tf.convert_to_tensor(self.x_train_val[0][region]), (1, self.T, self.N[region]))
+        self.input_data_precip_train = tf.reshape(tf.convert_to_tensor(self.x_train_val[1][region]), (1, self.T, self.N[region]))
+        self.targets_train = tf.reshape(tf.convert_to_tensor(self.y_train_val[region]), (1, self.T, self.N[region]))
+        
+        self.input_data_temp_val = tf.reshape(tf.convert_to_tensor(self.x_val[0][region]), (1, self.holdout, self.N[region]))
+        self.input_data_precip_val = tf.reshape(tf.convert_to_tensor(self.x_val[1][region]), (1, self.holdout, self.N[region]))
+        self.targets_val = tf.reshape(tf.convert_to_tensor(self.y_val[region]), (1, self.holdout, self.N[region]))
+        
+        self.input_data_temp = tf.reshape(tf.convert_to_tensor(self.x_train[0][region]), (1, self.T+self.holdout, self.N[region]))
+        self.input_data_precip = tf.reshape(tf.convert_to_tensor(self.x_train[1][region]), (1, self.T+self.holdout, self.N[region]))    
+        self.target = tf.reshape(tf.convert_to_tensor(self.y_train[region]), (1, self.T+self.holdout, self.N[region]))
+        
+        
+      else:
+        
+        self.input_data_temp = tf.reshape(tf.convert_to_tensor(self.x_train_transf[0][region]), (1, self.T, self.N[region]))
+        self.input_data_precip = tf.reshape(tf.convert_to_tensor(self.x_train_transf[1][region]), (1, self.T, self.N[region]))    
+        self.target = tf.reshape(tf.convert_to_tensor(self.y_train_transf[region]), (1, self.T, self.N[region])) 
+        
     
       self.Mask = tf.reshape(
       tf.convert_to_tensor(self.mask[region]),
@@ -75,12 +98,13 @@ class BuildRegion:
       
       self.loss_fn = individual_loss(self.Mask)
       
-      dummies_layer = Dummies(self.N[region], self.T, self.time_periods_na[region], country_trends=False)
-      Delta1, Delta2 = dummies_layer(self.input_temp)
+      if self.holdout==0:
+        dummies_layer = Dummies(self.N[region], self.T, self.time_periods_na[region], country_trends=False)
+        Delta1, Delta2 = dummies_layer(self.input_temp)
 
         # Creating fixed effects
-      country_FE, time_FE, self.country_FE_layer, self.time_FE_layer = create_fixed_effects(self, Delta1, Delta2)
-        
+        country_FE, time_FE, self.country_FE_layer, self.time_FE_layer = create_fixed_effects(self, Delta1, Delta2)
+          
         # Vectorize the inputs
       temp_input=Vectorize(self.N[region], 'temp')(self.input_temp)
       precip_input= Vectorize(self.N[region], 'precip')(self.input_precip)
@@ -97,12 +121,15 @@ class BuildRegion:
       # Creating temporary output layer, without fixed effects
       output_tmp = create_output_layer(self, input_last)
       
-      
-      output = Add()([time_FE, country_FE, output_tmp])
-   
-      
+      if self.holdout==0:
+        if self.dynamic_model:
+          output = Add()([country_FE, output_tmp])
+        else:
+          output = Add()([time_FE, country_FE, output_tmp])
+      else:
+        output = output_tmp
       # Creating the final output matrix with the correct dimensions
-      self.output_matrix = Matrixize(N=self.N[region], T=self.T, mask=self.Mask, holdout=self.holdout, n_obs_train=self.noObs[region])(output)
+      self.output_matrix = Matrixize(N=self.N[region], T=self.T, mask=self.Mask, holdout=self.holdout, n_obs_train=self.noObs["train"][region] )(output)
 
         
         

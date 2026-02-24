@@ -5,19 +5,17 @@ instance:
   min_delta: 1e-2
   patience: 3
   verbose: 2
-  dropout: 0.2
-  n_process: 2
-  model_selection: 'IC'
+  dropout: 0
+  n_process: 1
+  model_selection: 'IC' #  'Holdout', 'IC' or'CV'
   n_splits: 5
   cv_approach: 'trend' # 'full' or 'trend' or 'simple'
   formulation : 'regional'          # Model formulation, "global" or "regional"
-  timeout_per_node: 1000
-  n_countries: 196
-  time_periods: 63
-  dynamic_model: True
-  holdout: 0
-  within_transform: False
-  add_fe: True
+  timeout_per_node: 100000
+  # n_countries: 196
+  # time_periods: 63
+  dynamic_model: False
+  holdout: 5
   data_source: 'ee'   #ee or worldbank
   nodes_list:
     - (2,)

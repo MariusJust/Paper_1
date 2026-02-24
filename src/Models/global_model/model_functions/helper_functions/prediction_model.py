@@ -37,7 +37,7 @@ def pred_model(self):
     #if we are utilizing within transformation, we do not include fixed effects
 
 
-    if not self.within_transform:
+    if self.holdout==0:
         country_FE= Input(shape=(1, self.N['global'], 1), name='country_FE_in')
         time_FE= Input(shape=(1, 1, 1), name='time_FE_in')
         

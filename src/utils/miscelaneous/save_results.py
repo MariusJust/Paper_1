@@ -34,7 +34,7 @@ def save_yaml(filepath, pretty_yaml, raw_yaml):
     dir_path = os.path.dirname(filepath)
     
     # Create directory if it doesn't exist
-    os.makedirs(dir_path)
+    os.makedirs(dir_path, exist_ok=True)
     
     # Save the pretty_YAML to a file 
     with open(filepath, 'w') as file:

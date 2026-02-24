@@ -4,7 +4,7 @@ def initialize_parameters(self):
       
         self.individuals = {}
         self.N = {}
-        self.noObs = {}
+        self.noObs = defaultdict(dict)
 
         self.time_periods_na = {}
         self.time_periods_not_na = {}
@@ -52,10 +52,12 @@ def initialize_parameters(self):
         
         #number of regions
         self.no_regions = len(self.regions)
-        self.T = self.x_train[0][self.regions[0]].shape[0]
-       
-        self.time_periods = self.x_train[0][self.regions[0]].index.values
-        
+        if self.x_val is not None:
+                self.T = self.x_train_val[0][self.regions[0]].shape[0]
+                self.time_periods = self.x_train_val[0][self.regions[0]].index.values
+        else:   
+                self.T = self.x_train[0][self.regions[0]].shape[0]
+                self.time_periods = self.x_train[0][self.regions[0]].index.values
         self.model_pred = None
         
         self.Depth=len(self.node)

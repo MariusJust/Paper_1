@@ -1,9 +1,8 @@
 import numpy as np
 class WithinHelper:
     def __init__(self, x_input):
-        self.x_input = x_input.numpy()
-        
-        
+        self.x_input = x_input
+
     def calculate_P_matrix(self):
         
         """
@@ -12,24 +11,35 @@ class WithinHelper:
         Returns
             * P_matrix: P matrix for within transformation.
         """
-    
+        # calculate matrices for each region
         # shapes, note that delta 1 and 2 have batch size 1 as first dimension
         
-        Delta_1, Delta_2 = self.delta_fn()
+    
+        P_list = []
 
+        for i in enumerate(self.x_input):
+            P_region = self.calculate_P_matrix_region(i[0])
+            P_list.append(P_region)
+
+
+        return P_list
+    
+    def calculate_P_matrix_region(self, i):
+       
+        Delta_1, Delta_2 = self.delta_fn(self.x_input[i].numpy()[0,:,:])
         n = Delta_1.shape[0]
-     
+    
         Delta_N = Delta_1.T @ Delta_1 
         Delta_T = Delta_2.T @ Delta_2
         Delta_TN = Delta_2.T @ Delta_1
         Delta_N_inv = np.linalg.inv(Delta_N)
         
-        Delta_N
+        
         
         # Note: Delta_TN.T is (N x T)
         D_bar = Delta_2 - Delta_1 @ Delta_N_inv @ Delta_TN.T
 
-       
+    
         Q = Delta_T - Delta_TN @ Delta_N_inv @ Delta_TN.T
 
         Q_inv = np.linalg.inv(Q)
@@ -41,16 +51,13 @@ class WithinHelper:
         second_term= Delta_1 @ Delta_N_inv @ Delta_1.T
         third_term = D_bar @ Q_inv @ D_bar.T
         
-
-        P = I_n - second_term - third_term
-        
+        P = I_n - second_term + third_term 
+     
         return P
     
-    
-    def delta_fn(self):
+    def delta_fn(self, x):
     
             #remove first dimension
-            x=self.x_input[0,:,:]
 
             N = x.shape[1]
             T = x.shape[0]

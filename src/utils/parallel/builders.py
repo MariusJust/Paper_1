@@ -3,19 +3,18 @@
 def build_arg_list_cv(self):
         self.arg_list=[(
         self.nodes_list[i], 
-        self.no_inits, 
-        self.seed_value, 
-        self.lr,
-        self.min_delta, 
-        self.patience, 
-        self.verbose, 
-        self.dropout,
-        self.n_splits, 
-        self.cv_approach, 
-        self.n_countries, 
-        self.time_periods,
-        self.country_trends,
-        self.dynamic_model,
+        self.cfg.no_inits, 
+        self.cfg.seed_value, 
+        self.cfg.lr,
+        self.cfg.min_delta, 
+        self.cfg.patience, 
+        self.cfg.verbose, 
+        self.cfg.dropout,
+        self.cfg.n_splits, 
+        self.cfg.cv_approach, 
+        self.cfg.n_countries, 
+        self.cfg.time_periods,
+        self.cfg.dynamic_model,
         self.data
     ) for i in range(len(self.nodes_list))]
 
@@ -23,19 +22,17 @@ def build_arg_list_cv(self):
 def build_arg_list_ic(self):
         self.arg_list=[(
         self.nodes_list[i],
-        self.no_inits, 
-        self.seed_value, 
-        self.lr,
-        self.min_delta, 
-        self.patience, 
-        self.verbose, 
-        self.dropout,
-        self.n_countries, 
-        self.time_periods,
-        self.country_trends,
-        self.dynamic_model,
-        self.holdout,
-        self.within_transform,
+        self.cfg.no_inits, 
+        self.cfg.seed_value, 
+        self.cfg.lr,
+        self.cfg.min_delta, 
+        self.cfg.patience, 
+        self.cfg.verbose, 
+        self.cfg.dropout,
+        # self.cfg.n_countries, 
+        # self.cfg.time_periods,
+        self.cfg.dynamic_model,
+        self.cfg.holdout,
         self.data
         ) for i in range(len(self.nodes_list))]
             
@@ -58,7 +55,6 @@ def build_arg_list_mc(self):
                 "cv_approach": self.cfg.instance.cv_approach,
                 "n_countries": self.cfg.instance.n_countries,
                 "time_periods": self.cfg.instance.time_periods,
-                "country_trends": self.cfg.instance.country_trends,
                 "model_selection":self.cfg.instance.model_selection,
                 "dynamic_model":self.cfg.instance.dynamic_model,
                 "data": simulate(

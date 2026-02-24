@@ -7,7 +7,12 @@ def Preprocess(self):
      
     compute_x_train_fullSample(self, self.x_train)      
     compute_y_train_fullSample(self)
-    compute_mask_fullSample(self, self.x_train)
+    compute_mask_fullSample(self)
+    
+    if self.x_val is not None and self.y_val is not None:
+        compute_x_train_val(self)
+        compute_y_train_val(self)
+        compute_mask_train_val(self, self.x_train_val)
     
 
 ################################### Full Sample Preprocessing Functions ###################################
@@ -33,8 +38,8 @@ def compute_x_train_fullSample(self, x_train):
                     self.time_periods_not_na[region] = np.sum(~np.isnan(x_np_var), axis=1) > 0
                     self.time_periods_na[region] = np.sum(~self.time_periods_not_na[region])
                 
-                    self.noObs[region] = self.N[region]*self.T - np.isnan(x_np_var).sum()
-
+                    self.noObs[region] = self.N[region]*(self.T+self.holdout) - np.isnan(x_np_var).sum()
+                    self.noObs["train"][region] = self.noObs[region]
 
 def compute_y_train_fullSample(self):
         for region in self.regions:
@@ -49,12 +54,42 @@ def compute_y_train_fullSample(self):
                     getattr(self, key1.capitalize())[region] = val
         
         
-def compute_mask_fullSample(self, x_train):
+def compute_mask_fullSample(self):
 
      for region in self.regions:
             # Create a mask for each region
             self.mask[region] = np.isnan(self.x_train[0][region])
+            
+            non_na = np.sum(~self.mask[region], axis=1) > 0
+            self.time_periods_not_na[region] = non_na
+            self.time_periods_na[region] = np.sum(~non_na)
+          
+################################### Train/val Preprocessing Functions ###################################
     
+def compute_x_train_val(self):
+        for key, var in self.x_train_val.items():
+            for region in self.regions:
+                self.x_train_val_transf[key][region] = np.array(self.x_train_val[key][region].copy()) 
+                self.x_val_transf[key][region] = np.array(self.x_val[key][region].copy())
+                
+def compute_y_train_val(self): 
+    for region in self.regions:
+        self.y_train_val_df[region] = self.y_train_val[region].copy()
+        self.y_train_val_transf[region] = np.array(self.y_train_val_df[region].copy())
+        
+        self.y_val_df[region] = self.y_val[region].copy()
+        self.y_val_transf[region] = np.array(self.y_val_df[region].copy())
+
+def compute_mask_train_val(self, x_train):
+    for region in self.regions:
+        self.mask['train'][region] = np.isnan(self.x_train_val[0][region])
+        
+        # also calculate the number of non-NaN values
+        self.time_periods_not_na[region] = np.sum(~np.isnan(self.x_train_val[0][region]), axis=1) > 0
+        self.time_periods_na[region] = np.sum(~self.time_periods_not_na[region])
+        self.noObs["train"][region] = self.N[region]*self.T - np.isnan(self.x_train_val_transf[0][region]).sum()
+    
+################################  Stats  ########################################################
 
 def compute_stats(arr):
         """

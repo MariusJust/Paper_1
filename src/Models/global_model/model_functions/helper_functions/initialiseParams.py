@@ -45,7 +45,6 @@ def initialize_parameters(self):
         self.params = None
         self.BIC = None
         self.AIC = None
-        self.country_FE= None
         self.P_matrix= None
         
 
