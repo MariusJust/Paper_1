@@ -10,12 +10,10 @@ instance:
   model_selection: 'IC'
   n_splits: 5
   cv_approach: 'trend' # 'full' or 'trend' or 'simple'
-  penalty: 0
   formulation : 'regional'          # Model formulation, "global" or "regional"
   timeout_per_node: 1000
   n_countries: 196
   time_periods: 63
-  country_trends: False
   dynamic_model: True
   holdout: 0
   within_transform: False
