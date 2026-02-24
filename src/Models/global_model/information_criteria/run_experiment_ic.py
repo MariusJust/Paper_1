@@ -39,7 +39,7 @@ class MainLoop:
             from simulations.simulation_functions import Pivot
             self.growth, self.precip, self.temp = Pivot(self.data)
         else:   
-            self.growth, self.precip, self.temp = load_data('IC', self.data_source)
+            self.growth, self.precip, self.temp, self.n_countries, self.time_periods = load_data('IC', self.data_source)
    
    
     def run_experiment(self):   
