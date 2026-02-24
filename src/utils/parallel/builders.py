@@ -15,6 +15,8 @@ def build_arg_list_cv(self):
         self.cfg.n_countries, 
         self.cfg.time_periods,
         self.cfg.dynamic_model,
+        self.data_source,
+          
         self.data
     ) for i in range(len(self.nodes_list))]
 
@@ -33,6 +35,7 @@ def build_arg_list_ic(self):
         # self.cfg.time_periods,
         self.cfg.dynamic_model,
         self.cfg.holdout,
+        self.data_source,  
         self.data
         ) for i in range(len(self.nodes_list))]
             
