@@ -1,36 +1,32 @@
 from utils.miscelaneous import turn_off_warnings
 turn_off_warnings()
+
 from utils import save_numpy, save_yaml, Multiprocess
 import hydra
+from hydra.core.hydra_config import HydraConfig
+from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
-from datetime import datetime
 
 
-@hydra.main(version_base=None, config_path="../config", config_name="config")
+@hydra.main(version_base=None, config_name="config")
 def main(cfg: DictConfig):
-  
-    inst=cfg.instance 
     
-    # Run parrallel processing passing the configuration
-    worker = Multiprocess(inst)
-    results=worker.run()
+    inst = cfg.instance
+    run_dir = Path(HydraConfig.get().runtime.output_dir)
 
-    # Save results 
-    path=f"runs/estimation/{datetime.today().strftime('%Y-%m-%d')}/results.npy"
-    save_numpy(path, results)
-    
-    # Save the configuration
-    path = f"runs/estimation/{datetime.today().strftime('%Y-%m-%d')}/config.yaml"
-    save_yaml(path, pretty_yaml=OmegaConf.to_yaml(cfg.instance, sort_keys=False), raw_yaml=OmegaConf.to_container(cfg.instance, resolve=True))
-    
-    # return results
-    return None
+    worker = Multiprocess(inst, run_dir)
+    results = worker.run()
 
-if __name__ == "__main__":    
-    
+    save_numpy(str(run_dir / "results.npy"), results)
+
+    # save_yaml(
+    #     str(run_dir / "config.yaml"),
+    #     pretty_yaml=OmegaConf.to_yaml(cfg.instance, sort_keys=False),
+    #     raw_yaml=OmegaConf.to_container(cfg.instance, resolve=True),
+    # )
+
+
+if __name__ == "__main__":
     import multiprocessing as mp
     mp.set_start_method("spawn", force=True)
-
     main()
-
-                                                                                                                                                                                              

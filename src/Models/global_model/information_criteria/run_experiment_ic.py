@@ -5,7 +5,7 @@ import random
 from utils.miscelaneous.warnings import turn_off_warnings
 from models.global_model.model_functions.helper_functions import load_data
 from models import MultivariateModelGlobal as Model
-from datetime import datetime
+
 
 turn_off_warnings()
 
@@ -14,11 +14,13 @@ class MainLoop:
    
         self.cfg=parent.cfg
         self.data=parent.data
+        self.run_dir = parent.run_dir
         self.node= node
         self.models_tmp = np.zeros(self.cfg.no_inits, dtype=object)
         self.BIC_list = np.zeros(self.cfg.no_inits)
         self.AIC_list = np.zeros(self.cfg.no_inits)
         self.holdout_MSE = np.zeros(self.cfg.no_inits)
+      
         
         #build a factory for the model, so we don't have to re-initialize the model each time
         self.factory = Model(
@@ -39,7 +41,7 @@ class MainLoop:
             from simulations.simulation_functions import Pivot
             self.growth, self.precip, self.temp = Pivot(self.data)
         else:   
-            self.growth, self.precip, self.temp, self.n_countries, self.time_periods = load_data('IC', self.data_source)
+            self.growth, self.precip, self.temp = load_data('IC', self.cfg.data_source)
    
    
     def run_experiment(self):   
@@ -100,7 +102,7 @@ class MainLoop:
         if self.data is None:
             
             # Create directory if it doesn't exist
-            path=f"runs/estimation/{datetime.today().strftime('%Y-%m-%d')}/{self.node}.weights.h5"
+            path=f"{self.run_dir}/parameters/{self.node}.weights.h5"
             dir_path = os.path.dirname(path)
             os.makedirs(dir_path, exist_ok=True)
 
